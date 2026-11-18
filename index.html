@@ -1,8 +1,571 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><title>Academia</title></head>
-<body style="font-family:sans-serif;text-align:center;padding:60px;">
-  <h1>🥋 Sistema da Academia</h1>
-  <p>Em breve.</p>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Academia Jiu-Jitsu</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, "Segoe UI", Roboto, sans-serif; margin: 0; background: #f4f5f9; color: #222; }
+  header { background: #667eea; color: #fff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin: 0; }
+  main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 20px; }
+  .card h2 { margin-top: 0; font-size: 18px; }
+  button { background: #667eea; color: #fff; border: 0; padding: 9px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; }
+  button:hover { opacity: .9; }
+  button.sec { background: #888; }
+  button.del { background: #dc3545; }
+  button.sm { padding: 5px 10px; font-size: 12px; margin-right: 4px; }
+  input, select { padding: 9px; border: 1px solid #ccc; border-radius: 6px; width: 100%; font-size: 14px; background: #fff; }
+  label { font-size: 13px; font-weight: 600; display: block; margin: 12px 0 4px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  th { background: #fafafa; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 8px; }
+  .avatar-v { display: inline-flex; align-items: center; justify-content: center; background: #667eea; color: #fff; font-weight: bold; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { background: #667eea; color: #fff; border-radius: 10px; padding: 16px; text-align: center; }
+  .stat small { opacity: .9; }
+  .stat div { font-size: 24px; font-weight: bold; margin-top: 4px; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tab { background: #e6e8f3; color: #333; }
+  .tab.ativa { background: #667eea; color: #fff; }
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); align-items: center; justify-content: center; padding: 15px; z-index: 50; }
+  .modal.show { display: flex; }
+  .modal-box { background: #fff; border-radius: 10px; padding: 22px; width: 100%; max-width: 480px; max-height: 92vh; overflow: auto; }
+  .modal-box h3 { margin-top: 0; }
+  .acoes { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  .msg { padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 14px; }
+  .msg.erro { background: #f8d7da; color: #721c24; }
+  .msg.ok { background: #d4edda; color: #155724; }
+  .login-box { max-width: 380px; margin: 80px auto; background: #fff; padding: 28px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+  .checks label { display: block; font-weight: normal; margin: 6px 0; }
+  .checks input { width: auto; margin-right: 6px; }
+  .hidden { display: none !important; }
+  .muted { color: #666; font-size: 13px; }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .b-ativo { background: #d4edda; color: #155724; }
+  .b-inativo { background: #e2e3e5; color: #383d41; }
+  .b-trancado { background: #fff3cd; color: #856404; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<section id="tela-login" class="hidden">
+  <div class="login-box">
+    <h2 style="margin-top:0;">🥋 Entrar</h2>
+    <p class="muted">Acesso restrito ao dono e professores da academia.</p>
+    <form id="form-login">
+      <label>E-mail</label>
+      <input type="email" id="login-email" required autocomplete="username">
+      <label>Senha</label>
+      <input type="password" id="login-senha" required autocomplete="current-password">
+      <div style="margin-top:18px;"><button type="submit" style="width:100%;">Entrar</button></div>
+    </form>
+    <div id="login-msg"></div>
+  </div>
+</section>
+
+<!-- APP -->
+<section id="tela-app" class="hidden">
+  <header>
+    <h1 id="titulo-academia">🥋 Academia</h1>
+    <button class="sec" id="btn-sair">Sair</button>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="tab ativa" data-tab="dashboard">📊 Início</button>
+      <button class="tab" data-tab="alunos">👥 Alunos</button>
+      <button class="tab" data-tab="turmas">⏰ Turmas</button>
+      <button class="tab" data-tab="config">⚙️ Configurações</button>
+    </div>
+
+    <!-- INÍCIO -->
+    <div id="tab-dashboard">
+      <div class="stats">
+        <div class="stat"><small>Alunos ativos</small><div id="st-ativos">0</div></div>
+        <div class="stat"><small>Turmas</small><div id="st-turmas">0</div></div>
+        <div class="stat"><small>Previsto por mês</small><div id="st-previsto">R$ 0</div></div>
+      </div>
+      <div class="card">
+        <h2>Aulas de hoje</h2>
+        <div id="aulas-hoje"></div>
+      </div>
+    </div>
+
+    <!-- ALUNOS -->
+    <div id="tab-alunos" class="hidden">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+          <h2 style="margin:0;">Alunos</h2>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="text" id="busca-aluno" placeholder="Buscar por nome..." style="width:220px;">
+            <button id="btn-novo-aluno">➕ Novo aluno</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto; margin-top:14px;">
+          <table>
+            <thead><tr><th>Aluno</th><th>Faixa</th><th>Plano</th><th>Status</th><th></th></tr></thead>
+            <tbody id="lista-alunos"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TURMAS -->
+    <div id="tab-turmas" class="hidden">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <h2 style="margin:0;">Turmas</h2>
+          <button id="btn-nova-turma">➕ Nova turma</button>
+        </div>
+        <div style="overflow-x:auto; margin-top:14px;">
+          <table>
+            <thead><tr><th>Turma</th><th>Dias</th><th>Horário</th><th>Instrutor</th><th></th></tr></thead>
+            <tbody id="lista-turmas"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIGURAÇÕES -->
+    <div id="tab-config" class="hidden">
+      <div class="card">
+        <h2>Academia</h2>
+        <div class="row">
+          <div><label>Nome da academia</label><input type="text" id="cfg-nome"></div>
+          <div><label>Dia de vencimento (1 a 28)</label><input type="number" id="cfg-venc" min="1" max="28"></div>
+        </div>
+        <h2 style="margin-top:22px;">Valor por plano (R$)</h2>
+        <div class="row">
+          <div><label>1x por semana</label><input type="number" id="cfg-p-1x" min="0" step="0.01"></div>
+          <div><label>2x por semana</label><input type="number" id="cfg-p-2x" min="0" step="0.01"></div>
+          <div><label>3x por semana</label><input type="number" id="cfg-p-3x" min="0" step="0.01"></div>
+          <div><label>Livre</label><input type="number" id="cfg-p-livre" min="0" step="0.01"></div>
+        </div>
+        <div style="margin-top:18px;"><button id="btn-salvar-config">💾 Salvar configurações</button></div>
+        <div id="cfg-msg"></div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- MODAL ALUNO -->
+<div id="modal-aluno" class="modal">
+  <form class="modal-box" id="form-aluno">
+    <h3 id="titulo-modal-aluno">Novo aluno</h3>
+    <label>Nome completo</label>
+    <input type="text" id="a-nome" required>
+    <div class="row">
+      <div><label>Faixa</label>
+        <select id="a-faixa">
+          <option value="branca">Branca</option><option value="azul">Azul</option>
+          <option value="roxa">Roxa</option><option value="marrom">Marrom</option><option value="preta">Preta</option>
+        </select></div>
+      <div><label>Plano</label>
+        <select id="a-plano">
+          <option value="1x">1x por semana</option><option value="2x">2x por semana</option>
+          <option value="3x">3x por semana</option><option value="livre">Livre</option>
+        </select></div>
+    </div>
+    <div class="row">
+      <div><label>Status</label>
+        <select id="a-status">
+          <option value="ativo">Ativo</option><option value="inativo">Inativo</option><option value="trancado">Trancado</option>
+        </select></div>
+      <div><label>Data de início</label><input type="date" id="a-inicio"></div>
+    </div>
+    <div class="row">
+      <div><label>Telefone / WhatsApp</label><input type="tel" id="a-tel"></div>
+      <div><label>E-mail</label><input type="email" id="a-email"></div>
+    </div>
+    <label>Turmas</label>
+    <div id="a-turmas" class="checks"></div>
+    <label>Foto</label>
+    <input type="file" id="a-foto" accept="image/*">
+    <img id="a-preview" class="hidden" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-top:8px;">
+    <div id="a-msg"></div>
+    <div class="acoes">
+      <button type="button" class="sec" data-fechar="modal-aluno">Cancelar</button>
+      <button type="submit">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<!-- MODAL TURMA -->
+<div id="modal-turma" class="modal">
+  <form class="modal-box" id="form-turma">
+    <h3 id="titulo-modal-turma">Nova turma</h3>
+    <label>Nome da turma</label>
+    <input type="text" id="t-nome" placeholder="Ex: Misto - Adulto A" required>
+    <div class="row">
+      <div><label>Horário</label><input type="time" id="t-horario" required></div>
+      <div><label>Instrutor</label><input type="text" id="t-instrutor"></div>
+    </div>
+    <label>Dias da semana</label>
+    <div id="t-dias" class="checks row" style="grid-template-columns: repeat(3, 1fr);"></div>
+    <div id="t-msg"></div>
+    <div class="acoes">
+      <button type="button" class="sec" data-fechar="modal-turma">Cancelar</button>
+      <button type="submit">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // Configuração do projeto Firebase da academia
+  const firebaseConfig = {
+    apiKey: "AIzaSyB1U3Fe7gX-i2s5pe2D-cQBQOYVi1JBcfA",
+    authDomain: "zr-eden.firebaseapp.com",
+    projectId: "zr-eden",
+    storageBucket: "zr-eden.firebasestorage.app",
+    messagingSenderId: "145008768234",
+    appId: "1:145008768234:web:641a179807cb11c58b9393"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // ---------- Constantes e estado ----------
+  const $ = id => document.getElementById(id);
+  const DIAS = [['seg','Seg'],['ter','Ter'],['qua','Qua'],['qui','Qui'],['sex','Sex'],['sab','Sáb']];
+  const MAPA_DIA = ['dom','seg','ter','qua','qui','sex','sab'];
+  const PLANOS_PADRAO = { '1x': 100, '2x': 130, '3x': 160, livre: 200 };
+  const NOMES_PLANO = { '1x': '1x por semana', '2x': '2x por semana', '3x': '3x por semana', livre: 'Livre' };
+
+  let alunos = [];
+  let turmas = [];
+  let config = { nome: 'Academia Jiu-Jitsu', planos: { ...PLANOS_PADRAO }, diaVencimento: 10 };
+  let unsubs = [];
+  let editandoAlunoId = null;
+  let editandoTurmaId = null;
+  let fotoTemp = null;
+
+  const hoje = () => new Date().toISOString().split('T')[0];
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const reais = v => 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',');
+  const capitalizar = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+  const avatar = a => a.foto
+    ? `<img class="avatar" src="${a.foto}" alt="">`
+    : `<span class="avatar avatar-v">${esc((a.nome || '?').charAt(0).toUpperCase())}</span>`;
+  const valorDoAluno = a => config.planos[a.plano || '2x'] || 0;
+
+  function msg(elId, texto, tipo = 'erro') {
+    const el = $(elId);
+    el.innerHTML = texto ? `<div class="msg ${tipo}">${esc(texto)}</div>` : '';
+  }
+
+  // ---------- Login ----------
+  $('form-login').addEventListener('submit', async e => {
+    e.preventDefault();
+    msg('login-msg', '');
+    try {
+      await signInWithEmailAndPassword(auth, $('login-email').value.trim(), $('login-senha').value);
+    } catch (err) {
+      msg('login-msg', 'E-mail ou senha incorretos.');
+    }
+  });
+
+  $('btn-sair').addEventListener('click', () => signOut(auth));
+
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      $('tela-login').classList.add('hidden');
+      $('tela-app').classList.remove('hidden');
+      iniciarDados();
+    } else {
+      $('tela-app').classList.add('hidden');
+      $('tela-login').classList.remove('hidden');
+      pararDados();
+    }
+  });
+
+  // ---------- Dados em tempo real (Firestore) ----------
+  function iniciarDados() {
+    pararDados();
+    unsubs.push(onSnapshot(collection(db, 'alunos'), snap => {
+      alunos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      alunos.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      renderAlunos();
+      renderInicio();
+    }));
+    unsubs.push(onSnapshot(collection(db, 'turmas'), snap => {
+      turmas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      turmas.sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
+      renderTurmas();
+      renderInicio();
+    }));
+    unsubs.push(onSnapshot(doc(db, 'config', 'geral'), snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        config = { ...config, ...d, planos: { ...PLANOS_PADRAO, ...(d.planos || {}) } };
+      }
+      $('titulo-academia').textContent = '🥋 ' + config.nome;
+      document.title = config.nome;
+      preencherConfig();
+      renderInicio();
+    }));
+  }
+
+  function pararDados() {
+    unsubs.forEach(u => u());
+    unsubs = [];
+  }
+
+  // ---------- Navegação entre abas ----------
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('ativa'));
+      btn.classList.add('ativa');
+      ['dashboard','alunos','turmas','config'].forEach(t => {
+        $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
+      });
+    });
+  });
+
+  // ---------- Início ----------
+  function renderInicio() {
+    const ativos = alunos.filter(a => a.status === 'ativo');
+    $('st-ativos').textContent = ativos.length;
+    $('st-turmas').textContent = turmas.length;
+    $('st-previsto').textContent = reais(ativos.reduce((s, a) => s + valorDoAluno(a), 0));
+
+    const hojeCodigo = MAPA_DIA[new Date().getDay()];
+    const aulas = turmas.filter(t => (t.dias || []).includes(hojeCodigo));
+    $('aulas-hoje').innerHTML = aulas.length
+      ? aulas.map(t => `
+          <div style="padding:12px 14px; margin-bottom:8px; background:#f9f9f9; border-left:5px solid #667eea; border-radius:6px;">
+            <strong>${esc(t.horario)} · ${esc(t.nome)}</strong><br>
+            <span class="muted">Professor: ${esc(t.instrutor || '-')}</span>
+          </div>`).join('')
+      : '<p class="muted">Nenhuma aula programada para hoje.</p>';
+  }
+
+  // ---------- Alunos ----------
+  function renderAlunos() {
+    const busca = $('busca-aluno').value.trim().toLowerCase();
+    const lista = alunos.filter(a => (a.nome || '').toLowerCase().includes(busca));
+    $('lista-alunos').innerHTML = lista.length ? lista.map(a => `
+      <tr>
+        <td>${avatar(a)}<strong>${esc(a.nome)}</strong></td>
+        <td>${capitalizar(a.faixa)}</td>
+        <td>${NOMES_PLANO[a.plano || '2x']}<br><span class="muted">${reais(valorDoAluno(a))}</span></td>
+        <td><span class="badge b-${a.status || 'ativo'}">${capitalizar(a.status || 'ativo')}</span></td>
+        <td style="white-space:nowrap;">
+          <button class="sm" data-editar-aluno="${a.id}">✏️ Editar</button>
+          <button class="sm del" data-excluir-aluno="${a.id}">🗑️</button>
+        </td>
+      </tr>`).join('')
+      : '<tr><td colspan="5" class="muted">Nenhum aluno encontrado.</td></tr>';
+  }
+
+  $('busca-aluno').addEventListener('input', renderAlunos);
+
+  function preencherTurmasNoAluno(selecionadas = []) {
+    $('a-turmas').innerHTML = turmas.length
+      ? turmas.map(t => `
+          <label><input type="checkbox" class="a-turma" value="${t.id}" ${selecionadas.includes(t.id) ? 'checked' : ''}>
+          ${esc(t.nome)} · ${esc((t.dias || []).join('/'))} · ${esc(t.horario)}</label>`).join('')
+      : '<p class="muted">Cadastre turmas primeiro.</p>';
+  }
+
+  function abrirModalAluno(id = null) {
+    editandoAlunoId = id;
+    fotoTemp = null;
+    msg('a-msg', '');
+    const a = id ? alunos.find(x => x.id === id) : null;
+    $('titulo-modal-aluno').textContent = a ? 'Editar aluno' : 'Novo aluno';
+    $('a-nome').value = a?.nome || '';
+    $('a-faixa').value = a?.faixa || 'branca';
+    $('a-plano').value = a?.plano || '2x';
+    $('a-status').value = a?.status || 'ativo';
+    $('a-inicio').value = a?.dataInicio || hoje();
+    $('a-tel').value = a?.telefone || '';
+    $('a-email').value = a?.email || '';
+    $('a-foto').value = '';
+    fotoTemp = a?.foto || null;
+    $('a-preview').src = fotoTemp || '';
+    $('a-preview').classList.toggle('hidden', !fotoTemp);
+    preencherTurmasNoAluno(a?.turmas || []);
+    $('modal-aluno').classList.add('show');
+  }
+
+  $('btn-novo-aluno').addEventListener('click', () => abrirModalAluno());
+
+  $('a-foto').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const tam = 160;
+        const canvas = document.createElement('canvas');
+        canvas.width = tam; canvas.height = tam;
+        const lado = Math.min(img.width, img.height);
+        canvas.getContext('2d').drawImage(img, (img.width - lado) / 2, (img.height - lado) / 2, lado, lado, 0, 0, tam, tam);
+        fotoTemp = canvas.toDataURL('image/jpeg', 0.8);
+        $('a-preview').src = fotoTemp;
+        $('a-preview').classList.remove('hidden');
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('form-aluno').addEventListener('submit', async e => {
+    e.preventDefault();
+    const nome = $('a-nome').value.trim();
+    if (!nome) return msg('a-msg', 'Informe o nome do aluno.');
+    const dados = {
+      nome,
+      faixa: $('a-faixa').value,
+      plano: $('a-plano').value,
+      status: $('a-status').value,
+      dataInicio: $('a-inicio').value,
+      telefone: $('a-tel').value.trim(),
+      email: $('a-email').value.trim(),
+      turmas: [...document.querySelectorAll('.a-turma:checked')].map(c => c.value),
+      foto: fotoTemp || ''
+    };
+    try {
+      if (editandoAlunoId) {
+        await setDoc(doc(db, 'alunos', editandoAlunoId), dados, { merge: true });
+      } else {
+        await addDoc(collection(db, 'alunos'), {
+          ...dados,
+          criadoEm: new Date().toISOString(),
+          graus: [],
+          historico_faixa: [{ faixa: dados.faixa, data: dados.dataInicio || hoje() }]
+        });
+      }
+      $('modal-aluno').classList.remove('show');
+    } catch (err) {
+      msg('a-msg', 'Não foi possível salvar: ' + err.message);
+    }
+  });
+
+  $('lista-alunos').addEventListener('click', async e => {
+    const editar = e.target.closest('[data-editar-aluno]');
+    const excluir = e.target.closest('[data-excluir-aluno]');
+    if (editar) abrirModalAluno(editar.dataset.editarAluno);
+    if (excluir) {
+      const id = excluir.dataset.excluirAluno;
+      const a = alunos.find(x => x.id === id);
+      if (confirm(`Excluir o aluno ${a?.nome}? Esta ação não pode ser desfeita.`)) {
+        await deleteDoc(doc(db, 'alunos', id));
+      }
+    }
+  });
+
+  // ---------- Turmas ----------
+  function renderTurmas() {
+    $('lista-turmas').innerHTML = turmas.length ? turmas.map(t => `
+      <tr>
+        <td><strong>${esc(t.nome)}</strong></td>
+        <td>${(t.dias || []).map(d => DIAS.find(x => x[0] === d)?.[1] || d).join(' / ')}</td>
+        <td>${esc(t.horario)}</td>
+        <td>${esc(t.instrutor || '-')}</td>
+        <td style="white-space:nowrap;">
+          <button class="sm" data-editar-turma="${t.id}">✏️ Editar</button>
+          <button class="sm del" data-excluir-turma="${t.id}">🗑️</button>
+        </td>
+      </tr>`).join('')
+      : '<tr><td colspan="5" class="muted">Nenhuma turma cadastrada.</td></tr>';
+  }
+
+  function abrirModalTurma(id = null) {
+    editandoTurmaId = id;
+    msg('t-msg', '');
+    const t = id ? turmas.find(x => x.id === id) : null;
+    $('titulo-modal-turma').textContent = t ? 'Editar turma' : 'Nova turma';
+    $('t-nome').value = t?.nome || '';
+    $('t-horario').value = t?.horario || '';
+    $('t-instrutor').value = t?.instrutor || '';
+    $('t-dias').innerHTML = DIAS.map(([cod, nome]) => `
+      <label><input type="checkbox" class="t-dia" value="${cod}" ${(t?.dias || []).includes(cod) ? 'checked' : ''}> ${nome}</label>`).join('');
+    $('modal-turma').classList.add('show');
+  }
+
+  $('btn-nova-turma').addEventListener('click', () => abrirModalTurma());
+
+  $('form-turma').addEventListener('submit', async e => {
+    e.preventDefault();
+    const dias = [...document.querySelectorAll('.t-dia:checked')].map(c => c.value);
+    if (dias.length === 0) return msg('t-msg', 'Escolha pelo menos um dia da semana.');
+    const dados = {
+      nome: $('t-nome').value.trim(),
+      horario: $('t-horario').value,
+      instrutor: $('t-instrutor').value.trim(),
+      dias
+    };
+    try {
+      if (editandoTurmaId) {
+        await setDoc(doc(db, 'turmas', editandoTurmaId), dados, { merge: true });
+      } else {
+        await addDoc(collection(db, 'turmas'), dados);
+      }
+      $('modal-turma').classList.remove('show');
+    } catch (err) {
+      msg('t-msg', 'Não foi possível salvar: ' + err.message);
+    }
+  });
+
+  $('lista-turmas').addEventListener('click', async e => {
+    const editar = e.target.closest('[data-editar-turma]');
+    const excluir = e.target.closest('[data-excluir-turma]');
+    if (editar) abrirModalTurma(editar.dataset.editarTurma);
+    if (excluir) {
+      const id = excluir.dataset.excluirTurma;
+      const t = turmas.find(x => x.id === id);
+      if (confirm(`Excluir a turma ${t?.nome}?`)) {
+        await deleteDoc(doc(db, 'turmas', id));
+      }
+    }
+  });
+
+  // ---------- Configurações ----------
+  function preencherConfig() {
+    if (document.activeElement && document.getElementById('tab-config').contains(document.activeElement)) return;
+    $('cfg-nome').value = config.nome;
+    $('cfg-venc').value = config.diaVencimento;
+    ['1x','2x','3x','livre'].forEach(p => { $('cfg-p-' + p).value = config.planos[p]; });
+  }
+
+  $('btn-salvar-config').addEventListener('click', async () => {
+    const planos = {};
+    ['1x','2x','3x','livre'].forEach(p => {
+      planos[p] = parseFloat($('cfg-p-' + p).value) || 0;
+    });
+    try {
+      await setDoc(doc(db, 'config', 'geral'), {
+        nome: $('cfg-nome').value.trim() || 'Academia Jiu-Jitsu',
+        diaVencimento: Math.min(28, Math.max(1, parseInt($('cfg-venc').value) || 10)),
+        planos
+      }, { merge: true });
+      msg('cfg-msg', 'Configurações salvas.', 'ok');
+    } catch (err) {
+      msg('cfg-msg', 'Não foi possível salvar: ' + err.message);
+    }
+  });
+
+  // ---------- Fechar modais ----------
+  document.querySelectorAll('[data-fechar]').forEach(b => {
+    b.addEventListener('click', () => $(b.dataset.fechar).classList.remove('show'));
+  });
+</script>
 </body>
 </html>
