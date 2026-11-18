@@ -126,6 +126,10 @@
         <div id="aulas-hoje"></div>
       </div>
       <div class="card">
+        <h2>⏸️ Trancados para retomar contato</h2>
+        <div id="retornos-lista"></div>
+      </div>
+      <div class="card">
         <h2>🥋 Perto de graduação</h2>
         <div id="graduacao-lista"></div>
       </div>
@@ -137,7 +141,8 @@
         <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
           <h2 style="margin:0;">Alunos</h2>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <input type="text" id="busca-aluno" placeholder="Buscar por nome..." style="width:220px;">
+            <input type="text" id="busca-aluno" placeholder="Buscar por nome..." style="width:200px;">
+            <select id="filtro-status" style="width:auto;"></select>
             <button id="btn-novo-aluno">➕ Novo aluno</button>
           </div>
         </div>
@@ -378,10 +383,6 @@
         </select></div>
     </div>
     <div class="row">
-      <div><label>Status</label>
-        <select id="a-status">
-          <option value="ativo">Ativo</option><option value="inativo">Inativo</option><option value="trancado">Trancado</option>
-        </select></div>
       <div><label>Data de início</label><input type="date" id="a-inicio"></div>
     </div>
     <div class="row">
@@ -400,6 +401,36 @@
     <div id="a-msg"></div>
     <div class="acoes">
       <button type="button" class="sec" data-fechar="modal-aluno">Cancelar</button>
+      <button type="submit">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<!-- MODAL SITUAÇÃO DA MATRÍCULA -->
+<div id="modal-status" class="modal">
+  <form class="modal-box" id="form-status">
+    <h3>Situação da matrícula</h3>
+    <p id="st-aluno" class="muted"></p>
+    <label>Nova situação</label>
+    <select id="st-novo">
+      <option value="trancado">⏸️ Trancado (pausa temporária, vai voltar)</option>
+      <option value="inativo">⛔ Inativo (saiu da academia)</option>
+      <option value="ativo">▶️ Ativo (reativar)</option>
+    </select>
+    <div id="st-motivo-box">
+      <label>Motivo</label>
+      <select id="st-motivo">
+        <option>Viagem</option><option>Lesão / saúde</option><option>Questão financeira</option>
+        <option>Trabalho / estudos</option><option>Mudou de cidade</option><option>Perdeu o interesse</option><option>Outro</option>
+      </select>
+    </div>
+    <div id="st-retorno-box"><label>Previsão de retorno (opcional)</label><input type="date" id="st-retorno"></div>
+    <label>Observação (opcional)</label>
+    <input type="text" id="st-obs" placeholder="Ex: volta depois da cirurgia">
+    <p class="muted" id="st-aviso" style="margin-top:12px;"></p>
+    <div id="st-msg"></div>
+    <div class="acoes">
+      <button type="button" class="sec" data-fechar="modal-status">Cancelar</button>
       <button type="submit">Salvar</button>
     </div>
   </form>
@@ -602,18 +633,28 @@
   // ---------- Alunos ----------
   function renderAlunos() {
     const busca = $('busca-aluno').value.trim().toLowerCase();
-    const lista = alunos.filter(a => (a.nome || '').toLowerCase().includes(busca));
+    const fs = $('filtro-status');
+    const cont = s => alunos.filter(a => (a.status || 'ativo') === s).length;
+    const atual = fs.value || 'ativo';
+    fs.innerHTML = `<option value="ativo">Ativos (${cont('ativo')})</option><option value="trancado">Trancados (${cont('trancado')})</option><option value="inativo">Inativos (${cont('inativo')})</option><option value="todos">Todos (${alunos.length})</option>`;
+    fs.value = atual;
+    const lista = alunos.filter(a => (a.nome || '').toLowerCase().includes(busca)
+      && (atual === 'todos' || (a.status || 'ativo') === atual));
     $('lista-alunos').innerHTML = lista.length ? lista.map(a => `
       <tr>
         <td>${avatar(a)}<strong>${esc(a.nome)}</strong></td>
         <td>${capitalizar(a.faixa)}</td>
         <td>${NOMES_PLANO[a.plano || '2x']}<br><span class="muted">${reais(valorDoAluno(a))}</span></td>
-        <td><span class="badge b-${a.status || 'ativo'}">${capitalizar(a.status || 'ativo')}</span></td>
+        <td><span class="badge b-${a.status || 'ativo'}">${capitalizar(a.status || 'ativo')}</span>${
+          (a.status && a.status !== 'ativo')
+            ? `<br><small class="muted">desde ${dataBR(a.statusData)}${a.statusMotivo ? ' · ' + esc(a.statusMotivo) : ''}${a.retornoPrevisto ? ' · volta ' + dataBR(a.retornoPrevisto) : ''}</small>`
+            : ''}</td>
         <td style="white-space:nowrap;">
           <button class="sm" data-grau="${a.id}">🥋 Grau</button>
           <button class="sm" data-historico="${a.id}">🎖️ Histórico</button>
           <button class="sm" data-faixa-up="${a.id}">⬆️ Faixa</button>
           <button class="sm" data-editar-aluno="${a.id}">✏️ Editar</button>
+          <button class="sm sec" data-status-aluno="${a.id}">${(a.status || 'ativo') === 'ativo' ? '⏸️ Trancar/Inativar' : '▶️ Reativar'}</button>
           <button class="sm del" data-excluir-aluno="${a.id}">🗑️</button>
         </td>
       </tr>`).join('')
@@ -639,7 +680,6 @@
     $('a-nome').value = a?.nome || '';
     $('a-faixa').value = a?.faixa || 'branca';
     $('a-plano').value = a?.plano || '2x';
-    $('a-status').value = a?.status || 'ativo';
     $('a-inicio').value = a?.dataInicio || hoje();
     $('a-tel').value = a?.telefone || '';
     $('a-email').value = a?.email || '';
@@ -684,7 +724,6 @@
       nome,
       faixa: $('a-faixa').value,
       plano: $('a-plano').value,
-      status: $('a-status').value,
       dataInicio: $('a-inicio').value,
       telefone: $('a-tel').value.trim(),
       email: $('a-email').value.trim(),
@@ -699,6 +738,7 @@
       } else {
         await addDoc(collection(db, 'alunos'), {
           ...dados,
+          status: 'ativo',
           criadoEm: new Date().toISOString(),
           graus: [],
           historico_faixa: [{ faixa: dados.faixa, data: dados.dataInicio || hoje() }]
@@ -726,7 +766,7 @@
     if (excluir) {
       const id = excluir.dataset.excluirAluno;
       const a = alunos.find(x => x.id === id);
-      if (confirm(`Excluir o aluno ${a?.nome}? Esta ação não pode ser desfeita.`)) {
+      if (confirm(`ATENÇÃO: excluir ${a?.nome} apaga a ficha inteira (graus, histórico de faixas, contato) e não pode ser desfeito.\n\nSe o aluno só parou de treinar, use "⏸️ Trancar/Inativar", que guarda todo o histórico.\n\nExcluir mesmo assim?`)) {
         await deleteDoc(doc(db, 'alunos', id));
       }
     }
@@ -1074,6 +1114,7 @@
     renderGraduacao();
     renderFaixas();
     renderAvisos();
+    renderRetornos();
     renderAvulsos();
     renderRelatorios();
     if (alunoGraus && $('modal-graus').classList.contains('show')) renderHistorico();
@@ -1229,6 +1270,99 @@
     } catch (err) {
       alert('Não foi possível atualizar: ' + err.message);
     }
+  });
+
+  // ---------- Situação da matrícula (trancar / inativar / reativar) ----------
+  let statusAlunoId = null;
+
+  function atualizarCamposStatus() {
+    const v = $('st-novo').value;
+    $('st-motivo-box').classList.toggle('hidden', v === 'ativo');
+    $('st-retorno-box').classList.toggle('hidden', v !== 'trancado');
+    $('st-aviso').textContent = v === 'ativo'
+      ? 'O aluno volta para as chamadas e para a cobrança mensal. Todo o histórico é mantido.'
+      : 'O aluno sai das chamadas e da cobrança mensal automática. Graus, faixas, presenças e pagamentos já feitos são mantidos. Cobranças já vencidas continuam em aberto.';
+  }
+
+  function abrirModalStatus(id) {
+    const a = alunos.find(x => x.id === id);
+    if (!a) return;
+    statusAlunoId = id;
+    msg('st-msg', '');
+    $('st-aluno').textContent = `${a.nome} · hoje: ${capitalizar(a.status || 'ativo')}`;
+    $('st-novo').value = (a.status || 'ativo') === 'ativo' ? 'trancado' : 'ativo';
+    $('st-retorno').value = '';
+    $('st-obs').value = '';
+    atualizarCamposStatus();
+    $('modal-status').classList.add('show');
+  }
+
+  $('st-novo').addEventListener('change', atualizarCamposStatus);
+
+  $('lista-alunos').addEventListener('click', e => {
+    const b = e.target.closest('[data-status-aluno]');
+    if (b) abrirModalStatus(b.dataset.statusAluno);
+  });
+
+  $('filtro-status').addEventListener('change', renderAlunos);
+
+  $('form-status').addEventListener('submit', async e => {
+    e.preventDefault();
+    const a = alunos.find(x => x.id === statusAlunoId);
+    if (!a) return;
+    const novo = $('st-novo').value;
+    if (novo === (a.status || 'ativo')) return msg('st-msg', 'Escolha uma situação diferente da atual.');
+    const entrada = {
+      status: novo,
+      data: hoje(),
+      motivo: novo === 'ativo' ? '' : $('st-motivo').value,
+      retornoPrevisto: novo === 'trancado' ? $('st-retorno').value : '',
+      obs: $('st-obs').value.trim()
+    };
+    try {
+      await setDoc(doc(db, 'alunos', a.id), {
+        status: novo,
+        statusData: entrada.data,
+        statusMotivo: entrada.motivo,
+        retornoPrevisto: entrada.retornoPrevisto,
+        statusObs: entrada.obs,
+        historico_status: [...(a.historico_status || []), entrada]
+      }, { merge: true });
+      // Remove só a mensalidade deste mês que ainda não venceu (não gera cobrança para quem saiu)
+      if (novo !== 'ativo') {
+        const reg = pagamentos.find(p => p.alunoId === a.id && p.mes === mesAtual() && !p.avulso);
+        if (reg && reg.status !== 'pago' && statusEfetivo(reg) === 'pendente') {
+          await deleteDoc(doc(db, 'pagamentos', reg.id));
+        }
+      }
+      $('modal-status').classList.remove('show');
+    } catch (err) {
+      msg('st-msg', 'Não foi possível salvar: ' + err.message);
+    }
+  });
+
+  function renderRetornos() {
+    if (!$('retornos-lista')) return;
+    const lista = alunos
+      .filter(a => a.status === 'trancado')
+      .sort((x, y) => (x.retornoPrevisto || '9999').localeCompare(y.retornoPrevisto || '9999'));
+    $('retornos-lista').innerHTML = lista.length ? lista.map(a => {
+      const chegou = a.retornoPrevisto && a.retornoPrevisto <= hoje();
+      return `
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px; margin-bottom:8px; background:#f9f9f9; border-left:4px solid ${chegou ? '#28a745' : '#ffc107'}; border-radius:6px;">
+          ${avatar(a)}
+          <div style="flex:1; min-width:160px;">
+            <strong>${esc(a.nome)}</strong><br>
+            <small>${esc(a.statusMotivo || 'Sem motivo')} · ${a.retornoPrevisto ? (chegou ? '<b style="color:#28a745;">retorno previsto: ' : 'volta em ') + dataBR(a.retornoPrevisto) + (chegou ? '</b>' : '') : 'sem previsão de retorno'}</small>
+          </div>
+          <button class="sm" data-status-aluno="${a.id}">▶️ Reativar</button>
+        </div>`;
+    }).join('') : '<p class="muted">Nenhum aluno trancado.</p>';
+  }
+
+  $('retornos-lista').addEventListener('click', e => {
+    const b = e.target.closest('[data-status-aluno]');
+    if (b) abrirModalStatus(b.dataset.statusAluno);
   });
 
   // ---------- Avisos de cobrança (WhatsApp) ----------
@@ -1585,6 +1719,13 @@
             <button class="sm del" data-remover-grau="${g.id}">🗑️</button></li>`).join('') + '</ul>'
         : '<p class="muted"><small>Nenhum grau registrado nesta faixa</small></p>';
     });
+
+    const hs = a.historico_status || [];
+    if (hs.length) {
+      html += `<h4 style="margin:16px 0 4px;">Situação da matrícula</h4><ul>` + [...hs].reverse().map(h =>
+        `<li style="margin-bottom:4px;">${dataBR(h.data)} · <b>${capitalizar(h.status)}</b>${h.motivo ? ' · ' + esc(h.motivo) : ''}${h.retornoPrevisto ? ' · volta ' + dataBR(h.retornoPrevisto) : ''}${h.obs ? ' · ' + esc(h.obs) : ''}</li>`
+      ).join('') + '</ul>';
+    }
 
     html += `<div style="margin-top:14px; border-top:1px solid #eee; padding-top:12px;">
       <label>Adicionar grau anterior (data em que foi conquistado)</label>
