@@ -1287,6 +1287,16 @@
   document.addEventListener('click', async e => {
     const w = e.target.closest('[data-whats]');
     if (w) return abrirWhats(w.dataset.whats);
+    const x = e.target.closest('[data-excluir-pag]');
+    if (x) {
+      const p = pagamentos.find(y => y.id === x.dataset.excluirPag);
+      if (!p || !p.avulso) return;
+      const a = alunos.find(y => y.id === p.alunoId);
+      if (!confirm(`Excluir a cobrança "${p.descricao}" (${reais(p.valor)}) de ${a?.nome || 'aluno'}? Esta ação não pode ser desfeita.`)) return;
+      try { await deleteDoc(doc(db, 'pagamentos', p.id)); }
+      catch (err) { alert('Não foi possível excluir: ' + err.message); }
+      return;
+    }
     const r = e.target.closest('#avisos-lista [data-recebido]');
     if (r) {
       try { await setDoc(doc(db, 'pagamentos', r.dataset.recebido), { status: 'pago', dataPagamento: hoje() }, { merge: true }); }
@@ -1440,7 +1450,7 @@
         ? `<button class="sm sec" data-desfazer="${p.id}">↩️ Desfazer</button>`
         : `<button class="sm" data-whats="${p.id}">📲 Avisar</button><button class="sm" data-recebido="${p.id}">✅ Recebido</button>`;
       return `<tr><td>${esc(a?.nome || '-')}</td><td>${esc(p.descricao)}</td><td>${reais(p.valor)}</td>
-        <td>${esc(p.vencimento)}</td><td>${situacao}</td><td>${acao}</td></tr>`;
+        <td>${esc(p.vencimento)}</td><td>${situacao}</td><td style="white-space:nowrap;">${acao}<button class="sm del" data-excluir-pag="${p.id}">🗑️</button></td></tr>`;
     }).join('') : '<tr><td class="muted">Nenhuma cobrança avulsa neste mês.</td></tr>';
   }
 
