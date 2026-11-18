@@ -88,6 +88,7 @@
       <button class="tab ativa" data-tab="dashboard">📊 Início</button>
       <button class="tab" data-tab="alunos">👥 Alunos</button>
       <button class="tab" data-tab="presenca">✓ Presença</button>
+      <button class="tab" data-tab="financeiro">💰 Financeiro</button>
       <button class="tab" data-tab="turmas">⏰ Turmas</button>
       <button class="tab" data-tab="config">⚙️ Configurações</button>
     </div>
@@ -102,6 +103,10 @@
       <div class="card">
         <h2>Aulas de hoje</h2>
         <div id="aulas-hoje"></div>
+      </div>
+      <div class="card">
+        <h2>🥋 Perto de graduação</h2>
+        <div id="graduacao-lista"></div>
       </div>
     </div>
 
@@ -154,6 +159,24 @@
       </div>
     </div>
 
+    <!-- FINANCEIRO -->
+    <div id="tab-financeiro" class="hidden">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <h2 style="margin:0;">Financeiro</h2>
+          <input type="month" id="fin-mes" style="width:auto;">
+        </div>
+        <div class="stats" id="fin-cards" style="margin-top:16px;"></div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Aluno</th><th>Plano</th><th>Valor</th><th>Situação</th><th></th></tr></thead>
+            <tbody id="fin-tabela"></tbody>
+          </table>
+        </div>
+        <p class="muted" style="margin-top:12px;">As cobranças são criadas sozinhas no início de cada mês. Quando o aluno pagar, por dinheiro, PIX ou cartão, basta marcar ✅ Recebido.</p>
+      </div>
+    </div>
+
     <!-- TURMAS -->
     <div id="tab-turmas" class="hidden">
       <div class="card">
@@ -184,6 +207,14 @@
           <div><label>2x por semana</label><input type="number" id="cfg-p-2x" min="0" step="0.01"></div>
           <div><label>3x por semana</label><input type="number" id="cfg-p-3x" min="0" step="0.01"></div>
           <div><label>Livre</label><input type="number" id="cfg-p-livre" min="0" step="0.01"></div>
+        </div>
+        <h2 style="margin-top:22px;">Aulas necessárias para avaliação de grau</h2>
+        <div class="row">
+          <div><label>Branca</label><input type="number" id="req-branca" min="1"></div>
+          <div><label>Azul</label><input type="number" id="req-azul" min="1"></div>
+          <div><label>Roxa</label><input type="number" id="req-roxa" min="1"></div>
+          <div><label>Marrom</label><input type="number" id="req-marrom" min="1"></div>
+          <div><label>Preta</label><input type="number" id="req-preta" min="1"></div>
         </div>
         <div style="margin-top:18px;"><button id="btn-salvar-config">💾 Salvar configurações</button></div>
         <div id="cfg-msg"></div>
@@ -296,7 +327,9 @@
 
   let alunos = [];
   let turmas = [];
-  let config = { nome: 'Academia Jiu-Jitsu', planos: { ...PLANOS_PADRAO }, diaVencimento: 10 };
+  const REQUISITOS_PADRAO = { branca: 30, azul: 60, roxa: 100, marrom: 150, preta: 200 };
+  let config = { nome: 'Academia Jiu-Jitsu', planos: { ...PLANOS_PADRAO }, diaVencimento: 10, requisitos: { ...REQUISITOS_PADRAO } };
+  let alunosCarregados = false, configCarregada = false, pagamentosCarregados = false;
   let unsubs = [];
   let editandoAlunoId = null;
   let editandoTurmaId = null;
@@ -355,8 +388,10 @@
     unsubs.push(onSnapshot(collection(db, 'alunos'), snap => {
       alunos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       alunos.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      alunosCarregados = true;
       renderAlunos();
       renderInicio();
+      sincronizarFinanceiro();
     }));
     unsubs.push(onSnapshot(collection(db, 'turmas'), snap => {
       turmas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -365,15 +400,18 @@
       renderInicio();
     }));
     iniciarPresenca();
+    iniciarFinanceiro();
     unsubs.push(onSnapshot(doc(db, 'config', 'geral'), snap => {
       if (snap.exists()) {
         const d = snap.data();
-        config = { ...config, ...d, planos: { ...PLANOS_PADRAO, ...(d.planos || {}) } };
+        config = { ...config, ...d, planos: { ...PLANOS_PADRAO, ...(d.planos || {}) }, requisitos: { ...REQUISITOS_PADRAO, ...(d.requisitos || {}) } };
       }
       $('titulo-academia').textContent = '🥋 ' + config.nome;
       document.title = config.nome;
+      configCarregada = true;
       preencherConfig();
       renderInicio();
+      sincronizarFinanceiro();
     }));
   }
 
@@ -387,7 +425,7 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('ativa'));
       btn.classList.add('ativa');
-      ['dashboard','alunos','presenca','turmas','config'].forEach(t => {
+      ['dashboard','alunos','presenca','financeiro','turmas','config'].forEach(t => {
         $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
       });
     });
@@ -422,6 +460,8 @@
         <td>${NOMES_PLANO[a.plano || '2x']}<br><span class="muted">${reais(valorDoAluno(a))}</span></td>
         <td><span class="badge b-${a.status || 'ativo'}">${capitalizar(a.status || 'ativo')}</span></td>
         <td style="white-space:nowrap;">
+          <button class="sm" data-grau="${a.id}">🥋 Grau</button>
+          <button class="sm" data-faixa-up="${a.id}">⬆️ Faixa</button>
           <button class="sm" data-editar-aluno="${a.id}">✏️ Editar</button>
           <button class="sm del" data-excluir-aluno="${a.id}">🗑️</button>
         </td>
@@ -600,9 +640,14 @@
     $('cfg-nome').value = config.nome;
     $('cfg-venc').value = config.diaVencimento;
     ['1x','2x','3x','livre'].forEach(p => { $('cfg-p-' + p).value = config.planos[p]; });
+    ['branca','azul','roxa','marrom','preta'].forEach(f => { $('req-' + f).value = config.requisitos[f]; });
   }
 
   $('btn-salvar-config').addEventListener('click', async () => {
+    const requisitos = {};
+    ['branca','azul','roxa','marrom','preta'].forEach(f => {
+      requisitos[f] = Math.max(1, parseInt($('req-' + f).value) || REQUISITOS_PADRAO[f]);
+    });
     const planos = {};
     ['1x','2x','3x','livre'].forEach(p => {
       planos[p] = parseFloat($('cfg-p-' + p).value) || 0;
@@ -611,7 +656,8 @@
       await setDoc(doc(db, 'config', 'geral'), {
         nome: $('cfg-nome').value.trim() || 'Academia Jiu-Jitsu',
         diaVencimento: Math.min(28, Math.max(1, parseInt($('cfg-venc').value) || 10)),
-        planos
+        planos,
+        requisitos
       }, { merge: true });
       msg('cfg-msg', 'Configurações salvas.', 'ok');
     } catch (err) {
@@ -622,6 +668,7 @@
   // ---------- Presença (professor) ----------
   let sessaoAtiva = null;
   let presencasHoje = [];
+  let presencas = [];
   let timerToken = null;
   let tokenDesenhado = null;
 
@@ -634,8 +681,10 @@
       sessaoAtiva = d ? { id: d.id, ...d.data() } : null;
       renderPresenca();
     }));
-    unsubs.push(onSnapshot(query(collection(db, 'presencas'), where('data', '==', hoje())), snap => {
-      presencasHoje = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    unsubs.push(onSnapshot(collection(db, 'presencas'), snap => {
+      presencas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      presencasHoje = presencas.filter(p => p.data === hoje());
+      sincronizarFinanceiro();
       renderPresenca();
     }));
   }
@@ -823,6 +872,177 @@
       }
     });
   }
+
+  // ---------- Financeiro ----------
+  let pagamentos = [];
+  const mesAtual = () => hoje().slice(0, 7);
+  const statusEfetivo = p => p.status === 'pago' ? 'pago' : (p.vencimento < hoje() ? 'atrasado' : 'pendente');
+
+  function iniciarFinanceiro() {
+    $('fin-mes').value = mesAtual();
+    unsubs.push(onSnapshot(collection(db, 'pagamentos'), snap => {
+      pagamentos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      pagamentosCarregados = true;
+      sincronizarFinanceiro();
+    }));
+  }
+
+  // Só gera cobranças quando todos os dados já chegaram, para não duplicar
+  function sincronizarFinanceiro() {
+    if (alunosCarregados && configCarregada && pagamentosCarregados) gerarCobrancasDoMes();
+    renderFinanceiro();
+    renderGraduacao();
+  }
+
+  async function gerarCobrancasDoMes() {
+    const mes = mesAtual();
+    const dia = String(config.diaVencimento || 10).padStart(2, '0');
+    const jaCobrados = new Set(pagamentos.filter(p => p.mes === mes).map(p => p.alunoId));
+    for (const a of alunos.filter(x => x.status === 'ativo' && !jaCobrados.has(x.id))) {
+      jaCobrados.add(a.id);
+      try {
+        // ID fixo (mês_aluno) impede duplicar cobrança se dois aparelhos abrirem ao mesmo tempo
+        await setDoc(doc(db, 'pagamentos', `${mes}_${a.id}`), {
+          alunoId: a.id,
+          mes,
+          valor: config.planos[a.plano || '2x'] || 0,
+          vencimento: `${mes}-${dia}`,
+          status: 'pendente',
+          dataPagamento: ''
+        }, { merge: true });
+      } catch (err) {
+        console.error('Erro ao gerar cobrança:', err);
+      }
+    }
+  }
+
+  function renderFinanceiro() {
+    if (!$('fin-tabela')) return;
+    const mes = $('fin-mes').value || mesAtual();
+    const ativos = alunos.filter(a => a.status === 'ativo');
+    const doMes = pagamentos.filter(p => p.mes === mes);
+    const previsto = ativos.reduce((s, a) => s + valorDoAluno(a), 0);
+    const recebido = doMes.filter(p => p.status === 'pago').reduce((s, p) => s + Number(p.valor || 0), 0);
+    const aReceber = Math.max(0, previsto - recebido);
+    const atrasado = doMes.filter(p => statusEfetivo(p) === 'atrasado').reduce((s, p) => s + Number(p.valor || 0), 0);
+    const pct = previsto ? Math.round((recebido / previsto) * 100) : 0;
+
+    $('fin-cards').innerHTML = [
+      ['Previsto', reais(previsto)],
+      ['Já recebido', `${reais(recebido)} (${pct}%)`],
+      ['Ainda a receber', reais(aReceber)],
+      ['Em atraso', reais(atrasado)]
+    ].map(([t, v]) => `<div class="stat"><small>${t}</small><div style="font-size:20px;">${v}</div></div>`).join('');
+
+    $('fin-tabela').innerHTML = ativos.length ? ativos.map(a => {
+      const reg = doMes.find(p => p.alunoId === a.id);
+      const plano = NOMES_PLANO[a.plano || '2x'];
+      if (!reg) {
+        return `<tr><td>${avatar(a)}<strong>${esc(a.nome)}</strong></td><td>${plano}</td><td>${reais(valorDoAluno(a))}</td>
+          <td><span class="badge b-trancado">Sem cobrança</span></td><td></td></tr>`;
+      }
+      const st = statusEfetivo(reg);
+      const badge = {
+        pago: '<span class="badge b-ativo">Pago</span>',
+        pendente: '<span class="badge b-inativo">A vencer</span>',
+        atrasado: '<span class="badge" style="background:#f8d7da;color:#721c24;">Atrasado</span>'
+      }[st];
+      const acao = st === 'pago'
+        ? `<button class="sm sec" data-desfazer="${reg.id}">↩️ Desfazer</button>`
+        : `<button class="sm" data-recebido="${reg.id}">✅ Recebido</button>`;
+      return `<tr><td>${avatar(a)}<strong>${esc(a.nome)}</strong></td><td>${plano}</td><td>${reais(reg.valor)}</td>
+        <td>${badge}</td><td>${acao}</td></tr>`;
+    }).join('') : '<tr><td colspan="5" class="muted">Nenhum aluno ativo.</td></tr>';
+  }
+
+  $('fin-mes').addEventListener('change', renderFinanceiro);
+
+  $('fin-tabela').addEventListener('click', async e => {
+    const rec = e.target.closest('[data-recebido]');
+    const des = e.target.closest('[data-desfazer]');
+    try {
+      if (rec) await setDoc(doc(db, 'pagamentos', rec.dataset.recebido), { status: 'pago', dataPagamento: hoje() }, { merge: true });
+      if (des) await setDoc(doc(db, 'pagamentos', des.dataset.desfazer), { status: 'pendente', dataPagamento: '' }, { merge: true });
+    } catch (err) {
+      alert('Não foi possível atualizar o pagamento: ' + err.message);
+    }
+  });
+
+  // ---------- Graduação ----------
+  function aulasDesdeGraduacao(a) {
+    const desde = a.dataUltimaGraduacao || a.dataInicio || '1900-01-01';
+    return new Set(
+      presencas.filter(p => p.alunoId === a.id && p.presente && p.data >= desde)
+        .map(p => `${p.data}|${p.turmaId}`)
+    ).size;
+  }
+
+  function statusGraduacao(a) {
+    const req = config.requisitos[a.faixa] || 30;
+    const aulas = aulasDesdeGraduacao(a);
+    return {
+      aulas, req,
+      pct: Math.min(100, Math.round((aulas / req) * 100)),
+      apto: aulas >= req,
+      perto: aulas >= req * 0.8 && aulas < req
+    };
+  }
+
+  function renderGraduacao() {
+    if (!$('graduacao-lista')) return;
+    const lista = alunos
+      .filter(a => a.status === 'ativo')
+      .map(a => ({ a, s: statusGraduacao(a) }))
+      .filter(x => x.s.perto || x.s.apto)
+      .sort((x, y) => y.s.pct - x.s.pct);
+
+    $('graduacao-lista').innerHTML = lista.length ? lista.map(({ a, s }) => `
+      <div style="display:flex; align-items:center; gap:12px; padding:10px; margin-bottom:8px; background:#f9f9f9; border-left:4px solid ${s.apto ? '#28a745' : '#ffc107'}; border-radius:6px;">
+        ${avatar(a)}
+        <div style="flex:1;">
+          <strong>${esc(a.nome)}</strong> · faixa ${capitalizar(a.faixa)}<br>
+          <small>${s.aulas}/${s.req} aulas ${s.apto ? '<b style="color:#28a745;">— apto para avaliação de grau</b>' : '(quase lá)'}</small>
+          <div style="background:#e0e0e0; height:8px; border-radius:4px; margin-top:5px;">
+            <div style="width:${s.pct}%; height:8px; border-radius:4px; background:${s.apto ? '#28a745' : '#ffc107'};"></div>
+          </div>
+        </div>
+      </div>`).join('')
+      : '<p class="muted">Nenhum aluno perto de graduação no momento.</p>';
+  }
+
+  async function registrarGrau(id) {
+    const a = alunos.find(x => x.id === id);
+    if (!a) return;
+    const graus = [...(a.graus || [])];
+    const numero = graus.filter(g => g.faixa === a.faixa).length + 1;
+    graus.push({ id: Date.now().toString(), faixa: a.faixa, grau: numero, data: hoje() });
+    if (!confirm(`Registrar o ${numero}º grau de ${a.nome}? A contagem de aulas será reiniciada.`)) return;
+    await setDoc(doc(db, 'alunos', id), { graus, dataUltimaGraduacao: hoje() }, { merge: true });
+  }
+
+  async function subirFaixa(id) {
+    const a = alunos.find(x => x.id === id);
+    if (!a) return;
+    const i = CHAVE_FAIXAS.indexOf(a.faixa);
+    if (i === CHAVE_FAIXAS.length - 1) return alert('Este aluno já está na faixa preta.');
+    const nova = CHAVE_FAIXAS[i + 1];
+    if (!confirm(`Promover ${a.nome} para a faixa ${capitalizar(nova)}?`)) return;
+    const historico = [...(a.historico_faixa || []), { faixa: nova, data: hoje() }];
+    await setDoc(doc(db, 'alunos', id), { faixa: nova, historico_faixa: historico, dataUltimaGraduacao: hoje() }, { merge: true });
+  }
+
+  const CHAVE_FAIXAS = ['branca', 'azul', 'roxa', 'marrom', 'preta'];
+
+  $('lista-alunos').addEventListener('click', async e => {
+    const g = e.target.closest('[data-grau]');
+    const f = e.target.closest('[data-faixa-up]');
+    try {
+      if (g) await registrarGrau(g.dataset.grau);
+      if (f) await subirFaixa(f.dataset.faixaUp);
+    } catch (err) {
+      alert('Não foi possível atualizar: ' + err.message);
+    }
+  });
 
   // ---------- Fechar modais ----------
   document.querySelectorAll('[data-fechar]').forEach(b => {
