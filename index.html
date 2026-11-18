@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Academia Jiu-Jitsu</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: system-ui, "Segoe UI", Roboto, sans-serif; margin: 0; background: #f4f5f9; color: #222; }
@@ -49,6 +50,12 @@
   .b-ativo { background: #d4edda; color: #155724; }
   .b-inativo { background: #e2e3e5; color: #383d41; }
   .b-trancado { background: #fff3cd; color: #856404; }
+  .aluno-btn { width: 100%; background: #fff; color: #222; border: 1px solid #ccc; padding: 14px; font-size: 16px; text-align: left; }
+  .aluno-btn:hover { border-color: #667eea; }
+  .qr-box { text-align: center; background: #fff; padding: 16px; border-radius: 10px; border: 1px solid #eee; }
+  .qr-box img { max-width: 100%; height: auto; }
+  .chamada-linha { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #eee; cursor: pointer; }
+  .chamada-linha input { width: 20px; height: 20px; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -80,6 +87,7 @@
     <div class="tabs">
       <button class="tab ativa" data-tab="dashboard">📊 Início</button>
       <button class="tab" data-tab="alunos">👥 Alunos</button>
+      <button class="tab" data-tab="presenca">✓ Presença</button>
       <button class="tab" data-tab="turmas">⏰ Turmas</button>
       <button class="tab" data-tab="config">⚙️ Configurações</button>
     </div>
@@ -112,6 +120,36 @@
             <thead><tr><th>Aluno</th><th>Faixa</th><th>Plano</th><th>Status</th><th></th></tr></thead>
             <tbody id="lista-alunos"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRESENÇA -->
+    <div id="tab-presenca" class="hidden">
+      <div class="card">
+        <div id="pr-sem-aula">
+          <h2>Iniciar aula</h2>
+          <label>Turma</label>
+          <select id="pr-turma"></select>
+          <div style="margin-top:14px;"><button id="btn-iniciar-aula">▶️ Iniciar aula</button></div>
+          <p class="muted">Ao iniciar, aparece um QR code para os alunos escanearem com o celular.</p>
+        </div>
+
+        <div id="pr-com-aula" class="hidden">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div><h2 style="margin:0;" id="pr-nome"></h2><span class="muted" id="pr-info"></span></div>
+            <button class="del sm" id="btn-encerrar-aula">⏹️ Encerrar aula</button>
+          </div>
+          <div class="row" style="margin-top:18px; grid-template-columns: minmax(220px, 280px) 1fr; align-items:start;">
+            <div class="qr-box">
+              <div id="pr-qr"></div>
+              <p class="muted">O código muda a cada 60 segundos. Mantenha esta tela aberta durante a aula.</p>
+            </div>
+            <div>
+              <h3 style="margin-top:0;">Presença de hoje: <span id="pr-contagem">0</span>/<span id="pr-total">0</span></h3>
+              <div id="pr-lista"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -152,6 +190,16 @@
       </div>
     </div>
   </main>
+</section>
+
+<!-- CHECK-IN DO ALUNO (sem login, aberto pelo QR code) -->
+<section id="tela-aluno" class="hidden">
+  <div class="card" style="max-width:460px; margin:30px auto; text-align:center;">
+    <h2 id="aluno-titulo">🥋 Check-in</h2>
+    <p id="aluno-sub" class="muted"></p>
+    <div id="aluno-status"></div>
+    <div id="aluno-lista" style="display:grid; gap:8px; margin-top:14px; text-align:left;"></div>
+  </div>
 </section>
 
 <!-- MODAL ALUNO -->
@@ -222,7 +270,7 @@
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
-    getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot
+    getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, getDoc, query, where
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   // Configuração do projeto Firebase da academia
@@ -254,7 +302,10 @@
   let editandoTurmaId = null;
   let fotoTemp = null;
 
-  const hoje = () => new Date().toISOString().split('T')[0];
+  const hoje = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const reais = v => 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',');
   const capitalizar = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
@@ -267,6 +318,9 @@
     const el = $(elId);
     el.innerHTML = texto ? `<div class="msg ${tipo}">${esc(texto)}</div>` : '';
   }
+
+  // Se o link veio do QR code (?sessao=...), abre o check-in do aluno sem login
+  const modoAluno = new URLSearchParams(location.search).has('sessao');
 
   // ---------- Login ----------
   $('form-login').addEventListener('submit', async e => {
@@ -281,7 +335,9 @@
 
   $('btn-sair').addEventListener('click', () => signOut(auth));
 
-  onAuthStateChanged(auth, user => {
+  if (modoAluno) {
+    iniciarModoAluno();
+  } else onAuthStateChanged(auth, user => {
     if (user) {
       $('tela-login').classList.add('hidden');
       $('tela-app').classList.remove('hidden');
@@ -308,6 +364,7 @@
       renderTurmas();
       renderInicio();
     }));
+    iniciarPresenca();
     unsubs.push(onSnapshot(doc(db, 'config', 'geral'), snap => {
       if (snap.exists()) {
         const d = snap.data();
@@ -330,7 +387,7 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('ativa'));
       btn.classList.add('ativa');
-      ['dashboard','alunos','turmas','config'].forEach(t => {
+      ['dashboard','alunos','presenca','turmas','config'].forEach(t => {
         $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
       });
     });
@@ -561,6 +618,211 @@
       msg('cfg-msg', 'Não foi possível salvar: ' + err.message);
     }
   });
+
+  // ---------- Presença (professor) ----------
+  let sessaoAtiva = null;
+  let presencasHoje = [];
+  let timerToken = null;
+  let tokenDesenhado = null;
+
+  const rotuloTurma = t => `${t.nome} · ${(t.dias || []).map(d => DIAS.find(x => x[0] === d)?.[1] || d).join('/')} · ${t.horario}`;
+  const gerarToken = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+  function iniciarPresenca() {
+    unsubs.push(onSnapshot(query(collection(db, 'sessoes'), where('ativa', '==', true)), snap => {
+      const d = snap.docs[0];
+      sessaoAtiva = d ? { id: d.id, ...d.data() } : null;
+      renderPresenca();
+    }));
+    unsubs.push(onSnapshot(query(collection(db, 'presencas'), where('data', '==', hoje())), snap => {
+      presencasHoje = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderPresenca();
+    }));
+  }
+
+  function pararTokens() {
+    if (timerToken) clearInterval(timerToken);
+    timerToken = null;
+    tokenDesenhado = null;
+  }
+
+  async function rotacionarToken() {
+    if (!sessaoAtiva) return;
+    await setDoc(doc(db, 'sessoes', sessaoAtiva.id), {
+      tokenAnterior: sessaoAtiva.tokenAtual,
+      tokenAtual: gerarToken()
+    }, { merge: true });
+  }
+
+  function renderPresenca() {
+    const semAula = !sessaoAtiva;
+    $('pr-sem-aula').classList.toggle('hidden', !semAula);
+    $('pr-com-aula').classList.toggle('hidden', semAula);
+
+    if (semAula) {
+      pararTokens();
+      const selecionada = $('pr-turma').value;
+      $('pr-turma').innerHTML = turmas.length
+        ? turmas.map(t => `<option value="${t.id}">${esc(rotuloTurma(t))}</option>`).join('')
+        : '<option value="">Cadastre uma turma primeiro</option>';
+      if (selecionada) {
+        $('pr-turma').value = selecionada;
+      } else {
+        const diaCodigo = MAPA_DIA[new Date().getDay()];
+        const sugerida = turmas.find(t => (t.dias || []).includes(diaCodigo));
+        if (sugerida) $('pr-turma').value = sugerida.id;
+      }
+      return;
+    }
+
+    $('pr-nome').textContent = sessaoAtiva.turmaNome;
+    $('pr-info').textContent = `${sessaoAtiva.horario} · aula iniciada hoje`;
+
+    if (!timerToken) timerToken = setInterval(rotacionarToken, 60000);
+
+    if (tokenDesenhado !== sessaoAtiva.tokenAtual) {
+      tokenDesenhado = sessaoAtiva.tokenAtual;
+      const url = `${location.origin}${location.pathname}?sessao=${sessaoAtiva.id}&t=${sessaoAtiva.tokenAtual}`;
+      const qr = qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      $('pr-qr').innerHTML = qr.createImgTag(6, 8);
+    }
+
+    const roster = sessaoAtiva.roster || [];
+    const marcados = new Map(
+      presencasHoje.filter(p => p.sessaoId === sessaoAtiva.id).map(p => [p.alunoId, p])
+    );
+    $('pr-total').textContent = roster.length;
+    $('pr-contagem').textContent = marcados.size;
+    $('pr-lista').innerHTML = roster.length ? roster.map(a => {
+      const p = marcados.get(a.id);
+      const origem = p
+        ? (p.origem === 'qr' ? `📱 pelo QR às ${esc(p.horario)}` : '✍️ marcado pelo professor')
+        : '';
+      return `
+        <label class="chamada-linha">
+          <input type="checkbox" class="chamada-check" data-aluno="${a.id}" ${p ? 'checked' : ''}>
+          <span style="flex:1;">${esc(a.nome)}</span>
+          <small class="muted">${origem}</small>
+        </label>`;
+    }).join('') : '<p class="muted">Nenhum aluno ativo nesta turma.</p>';
+  }
+
+  $('btn-iniciar-aula').addEventListener('click', async () => {
+    const turmaId = $('pr-turma').value;
+    const t = turmas.find(x => x.id === turmaId);
+    if (!t) return alert('Cadastre uma turma antes de iniciar a aula.');
+    const roster = alunos
+      .filter(a => a.status === 'ativo' && (a.turmas || []).includes(turmaId))
+      .map(a => ({ id: a.id, nome: a.nome }));
+    try {
+      await addDoc(collection(db, 'sessoes'), {
+        turmaId,
+        turmaNome: t.nome,
+        horario: t.horario,
+        data: hoje(),
+        ativa: true,
+        tokenAtual: gerarToken(),
+        tokenAnterior: '',
+        roster,
+        iniciadaEm: new Date().toISOString()
+      });
+    } catch (err) {
+      alert('Não foi possível iniciar a aula: ' + err.message);
+    }
+  });
+
+  $('btn-encerrar-aula').addEventListener('click', async () => {
+    if (!sessaoAtiva) return;
+    if (!confirm('Encerrar a chamada? Os alunos não poderão mais marcar pelo QR code.')) return;
+    await setDoc(doc(db, 'sessoes', sessaoAtiva.id), {
+      ativa: false,
+      encerradaEm: new Date().toISOString()
+    }, { merge: true });
+    pararTokens();
+  });
+
+  // Chamada manual pelo professor (para quem não tem celular)
+  $('pr-lista').addEventListener('change', async e => {
+    const cb = e.target.closest('.chamada-check');
+    if (!cb || !sessaoAtiva) return;
+    const id = `${sessaoAtiva.id}_${cb.dataset.aluno}`;
+    try {
+      if (cb.checked) {
+        await setDoc(doc(db, 'presencas', id), {
+          alunoId: cb.dataset.aluno,
+          sessaoId: sessaoAtiva.id,
+          turmaId: sessaoAtiva.turmaId,
+          data: hoje(),
+          presente: true,
+          origem: 'manual',
+          horario: new Date().toLocaleTimeString('pt-BR')
+        });
+      } else {
+        await deleteDoc(doc(db, 'presencas', id));
+      }
+    } catch (err) {
+      alert('Não foi possível salvar a presença: ' + err.message);
+      cb.checked = !cb.checked;
+    }
+  });
+
+  // ---------- Check-in do aluno (sem login) ----------
+  async function iniciarModoAluno() {
+    $('tela-aluno').classList.remove('hidden');
+    const p = new URLSearchParams(location.search);
+    const sid = p.get('sessao');
+    const token = p.get('t');
+    const status = $('aluno-status');
+    const mostrarErro = texto => { status.innerHTML = `<div class="msg erro">${esc(texto)}</div>`; };
+
+    let snap;
+    try {
+      snap = await getDoc(doc(db, 'sessoes', sid));
+    } catch (err) {
+      return mostrarErro('Não foi possível abrir a aula. Verifique sua conexão e tente de novo.');
+    }
+    if (!snap.exists() || !snap.data().ativa) {
+      return mostrarErro('Esta aula não está aberta para check-in.');
+    }
+
+    const s = snap.data();
+    if (token !== s.tokenAtual && token !== s.tokenAnterior) {
+      return mostrarErro('Este QR code expirou. Escaneie o código que está na tela agora.');
+    }
+
+    $('aluno-titulo').textContent = '🥋 ' + s.turmaNome;
+    $('aluno-sub').textContent = `${s.horario} · Escolha seu nome para marcar presença`;
+    const lista = $('aluno-lista');
+    lista.innerHTML = (s.roster || []).map(a =>
+      `<button class="aluno-btn" data-aluno="${a.id}">${esc(a.nome)}</button>`
+    ).join('') || '<p class="muted">Nenhum aluno cadastrado nesta turma.</p>';
+
+    lista.addEventListener('click', async e => {
+      const btn = e.target.closest('[data-aluno]');
+      if (!btn) return;
+      const nome = btn.textContent;
+      if (!confirm(`Confirmar presença de ${nome}?`)) return;
+      try {
+        await setDoc(doc(db, 'presencas', `${sid}_${btn.dataset.aluno}`), {
+          alunoId: btn.dataset.aluno,
+          sessaoId: sid,
+          turmaId: s.turmaId,
+          data: hoje(),
+          presente: true,
+          origem: 'qr',
+          horario: new Date().toLocaleTimeString('pt-BR'),
+          token
+        });
+        lista.innerHTML = '';
+        $('aluno-sub').textContent = '';
+        status.innerHTML = `<div class="msg ok">✅ Presença confirmada, ${esc(nome)}! Bom treino 🥋</div>`;
+      } catch (err) {
+        mostrarErro('Não foi possível registrar. Sua presença pode já estar marcada ou o QR expirou. Escaneie de novo.');
+      }
+    });
+  }
 
   // ---------- Fechar modais ----------
   document.querySelectorAll('[data-fechar]').forEach(b => {
