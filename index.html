@@ -94,6 +94,7 @@
       <button class="tab ativa" data-tab="recepcao">🏠 Recepção</button>
       <button class="tab" data-tab="dashboard">📊 Início</button>
       <button class="tab" data-tab="alunos">👥 Alunos</button>
+      <button class="tab" data-tab="faixas">🥋 Faixas</button>
       <button class="tab" data-tab="presenca">✓ Presença</button>
       <button class="tab" data-tab="financeiro">💰 Financeiro</button>
       <button class="tab" data-tab="relatorios">📈 Relatórios</button>
@@ -146,6 +147,36 @@
             <tbody id="lista-alunos"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- FAIXAS -->
+    <div id="tab-faixas" class="hidden">
+      <div class="stats" id="fx-resumo"></div>
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+          <h2 style="margin:0;">Acompanhamento de faixas</h2>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="text" id="fx-busca" placeholder="Buscar por nome..." style="width:200px;">
+            <select id="fx-filtro" style="width:auto;">
+              <option value="">Todas as faixas</option>
+              <option value="branca">Branca</option><option value="azul">Azul</option>
+              <option value="roxa">Roxa</option><option value="marrom">Marrom</option><option value="preta">Preta</option>
+            </select>
+            <select id="fx-situacao" style="width:auto;">
+              <option value="">Todas as situações</option>
+              <option value="apto">Aptos para grau</option>
+              <option value="perto">Quase lá (80%+)</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto; margin-top:14px;">
+          <table>
+            <thead><tr><th>Aluno</th><th>Faixa</th><th>Graus</th><th>Tempo na faixa</th><th>Progresso para o próximo grau</th><th></th></tr></thead>
+            <tbody id="fx-tabela"></tbody>
+          </table>
+        </div>
+        <p class="muted" style="margin-top:12px;">O progresso conta as aulas com presença desde a última graduação. Os requisitos de aulas ficam em ⚙️ Configurações.</p>
       </div>
     </div>
 
@@ -530,7 +561,7 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('ativa'));
       btn.classList.add('ativa');
-      ['recepcao','dashboard','alunos','presenca','financeiro','relatorios','turmas','config'].forEach(t => {
+      ['recepcao','dashboard','alunos','faixas','presenca','financeiro','relatorios','turmas','config'].forEach(t => {
         $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
       });
     });
@@ -1023,6 +1054,7 @@
     if (alunosCarregados && configCarregada && pagamentosCarregados) gerarCobrancasDoMes();
     renderFinanceiro();
     renderGraduacao();
+    renderFaixas();
     renderAvulsos();
     renderRelatorios();
     if (alunoGraus && $('modal-graus').classList.contains('show')) renderHistorico();
@@ -1175,6 +1207,89 @@
     try {
       if (g) await registrarGrau(g.dataset.grau);
       if (f) await subirFaixa(f.dataset.faixaUp);
+    } catch (err) {
+      alert('Não foi possível atualizar: ' + err.message);
+    }
+  });
+
+  // ---------- Aba Faixas ----------
+  const CORES_FAIXA = { branca: '#e9ecef', azul: '#1e63d6', roxa: '#7b2cbf', marrom: '#7b4a2b', preta: '#222' };
+
+  function tempoNaFaixa(a) {
+    const entrada = [...(a.historico_faixa || [])].reverse().find(h => h.faixa === a.faixa);
+    const inicio = entrada?.data || a.dataInicio;
+    if (!inicio) return '-';
+    const dias = Math.max(0, Math.floor((new Date(hoje()) - new Date(inicio)) / 86400000));
+    const anos = Math.floor(dias / 365);
+    const meses = Math.floor((dias % 365) / 30);
+    if (anos) return `${anos}a ${meses}m`;
+    if (meses) return `${meses} ${meses === 1 ? 'mês' : 'meses'}`;
+    return `${dias} dias`;
+  }
+
+  function faixaVisual(f) {
+    const cor = CORES_FAIXA[f] || '#ccc';
+    return `<span style="display:inline-block; width:46px; height:12px; border-radius:3px; background:${cor}; border:1px solid #999; vertical-align:middle; margin-right:6px;"></span>${capitalizar(f)}`;
+  }
+
+  function renderFaixas() {
+    if (!$('fx-tabela')) return;
+    const ativos = alunos.filter(a => a.status === 'ativo');
+
+    $('fx-resumo').innerHTML = CHAVE_FAIXAS.map(f => {
+      const n = ativos.filter(a => a.faixa === f).length;
+      return `<div class="stat" style="background-image:none; background:${CORES_FAIXA[f]}; color:${f === 'branca' ? '#222' : '#fff'};">
+        <small>${capitalizar(f)}</small><div>${n}</div></div>`;
+    }).join('');
+
+    const busca = $('fx-busca').value.trim().toLowerCase();
+    const filtro = $('fx-filtro').value;
+    const situacao = $('fx-situacao').value;
+
+    const lista = alunos
+      .filter(a => (a.status || 'ativo') === 'ativo')
+      .filter(a => (a.nome || '').toLowerCase().includes(busca))
+      .filter(a => !filtro || a.faixa === filtro)
+      .map(a => ({ a, s: statusGraduacao(a) }))
+      .filter(x => !situacao || (situacao === 'apto' ? x.s.apto : (x.s.perto || x.s.apto)))
+      .sort((x, y) => CHAVE_FAIXAS.indexOf(y.a.faixa) - CHAVE_FAIXAS.indexOf(x.a.faixa) || y.s.pct - x.s.pct);
+
+    $('fx-tabela').innerHTML = lista.length ? lista.map(({ a, s }) => {
+      const graus = (a.graus || []).filter(g => g.faixa === a.faixa).length;
+      const cor = s.apto ? '#28a745' : s.perto ? '#ffc107' : '#667eea';
+      return `
+        <tr>
+          <td>${avatar(a)}<strong>${esc(a.nome)}</strong></td>
+          <td>${faixaVisual(a.faixa)}</td>
+          <td>${'●'.repeat(graus)}${'○'.repeat(Math.max(0, 4 - graus))} <span class="muted">(${graus})</span></td>
+          <td>${tempoNaFaixa(a)}</td>
+          <td style="min-width:200px;">
+            <small>${s.aulas}/${s.req} aulas ${s.apto ? '<b style="color:#28a745;">· apto!</b>' : ''}</small>
+            <div style="background:#e0e0e0; height:8px; border-radius:4px; margin-top:4px;">
+              <div style="width:${s.pct}%; height:8px; border-radius:4px; background:${cor};"></div>
+            </div>
+          </td>
+          <td style="white-space:nowrap;">
+            <button class="sm" data-fx-grau="${a.id}">🥋 Grau</button>
+            <button class="sm" data-fx-historico="${a.id}">🎖️ Histórico</button>
+            <button class="sm" data-fx-faixa-up="${a.id}">⬆️ Faixa</button>
+          </td>
+        </tr>`;
+    }).join('') : '<tr><td colspan="6" class="muted">Nenhum aluno encontrado.</td></tr>';
+  }
+
+  ['fx-busca', 'fx-filtro', 'fx-situacao'].forEach(id => {
+    $(id).addEventListener(id === 'fx-busca' ? 'input' : 'change', renderFaixas);
+  });
+
+  $('fx-tabela').addEventListener('click', async e => {
+    const g = e.target.closest('[data-fx-grau]');
+    const h = e.target.closest('[data-fx-historico]');
+    const f = e.target.closest('[data-fx-faixa-up]');
+    try {
+      if (g) await registrarGrau(g.dataset.fxGrau);
+      if (h) abrirHistorico(h.dataset.fxHistorico);
+      if (f) await subirFaixa(f.dataset.fxFaixaUp);
     } catch (err) {
       alert('Não foi possível atualizar: ' + err.message);
     }
@@ -1416,7 +1531,7 @@
   });
 
   // ---------- Recepção e área do dono ----------
-  const TABS_RESTRITAS = ['dashboard', 'alunos', 'financeiro', 'relatorios', 'turmas', 'config'];
+  const TABS_RESTRITAS = ['dashboard', 'alunos', 'faixas', 'financeiro', 'relatorios', 'turmas', 'config'];
   let areaDonoLiberada = false;
 
   function irPara(tab) {
