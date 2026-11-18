@@ -213,6 +213,11 @@
     <!-- FINANCEIRO -->
     <div id="tab-financeiro" class="hidden">
       <div class="card">
+        <h2>🔔 Avisos de vencimento</h2>
+        <p class="muted" style="margin-top:-8px;">Atrasados e que vencem nos próximos 3 dias. O botão abre o WhatsApp do aluno com a mensagem pronta.</p>
+        <div id="avisos-lista"></div>
+      </div>
+      <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <h2 style="margin:0;">Financeiro</h2>
           <input type="month" id="fin-mes" style="width:auto;">
@@ -306,6 +311,14 @@
         <div class="row">
           <div><label>Senha da área do dono (preencha só para trocar)</label><input type="password" id="cfg-senha" placeholder="Nova senha"></div>
         </div>
+
+        <h2 style="margin-top:22px;">Mensagem de cobrança (WhatsApp)</h2>
+        <div class="row">
+          <div><label>Chave PIX (opcional, vai na mensagem)</label><input type="text" id="cfg-pix" placeholder="CPF, e-mail, telefone ou chave aleatória"></div>
+        </div>
+        <label>Modelo da mensagem</label>
+        <textarea id="cfg-msg-modelo" rows="4" style="width:100%; padding:9px; border:1px solid #ccc; border-radius:6px; font:inherit;"></textarea>
+        <p class="muted">Use: {nome} {academia} {descricao} {valor} {situacao} {vencimento} {pix}</p>
 
         <h2 style="margin-top:22px;">Identidade visual</h2>
         <div class="row">
@@ -449,6 +462,7 @@
   const DIAS = [['seg','Seg'],['ter','Ter'],['qua','Qua'],['qui','Qui'],['sex','Sex'],['sab','Sáb']];
   const MAPA_DIA = ['dom','seg','ter','qua','qui','sex','sab'];
   const PLANOS_PADRAO = { '1x': 100, '2x': 130, '3x': 160, livre: 200 };
+  const MSG_PADRAO = 'Olá {nome}! Lembrete da {academia}: sua cobrança ({descricao}) de {valor} {situacao} {vencimento}. {pix}Qualquer dúvida, é só chamar! 🥋';
   const NOMES_PLANO = { '1x': '1x por semana', '2x': '2x por semana', '3x': '3x por semana', livre: 'Livre' };
 
   let alunos = [];
@@ -796,6 +810,8 @@
       $('cfg-logo-preview').src = logoTemp;
       $('cfg-logo-preview').classList.remove('hidden');
     }
+    $('cfg-pix').value = config.chavePix || '';
+    $('cfg-msg-modelo').value = config.msgCobranca || MSG_PADRAO;
     ['1x','2x','3x','livre'].forEach(p => { $('cfg-p-' + p).value = config.planos[p]; });
     ['branca','azul','roxa','marrom','preta'].forEach(f => { $('req-' + f).value = config.requisitos[f]; });
   }
@@ -815,6 +831,8 @@
         diaVencimento: Math.min(28, Math.max(1, parseInt($('cfg-venc').value) || 10)),
         planos,
         requisitos,
+        chavePix: $('cfg-pix').value.trim(),
+        msgCobranca: $('cfg-msg-modelo').value.trim() || MSG_PADRAO,
         cor1: $('cfg-cor1').value,
         cor2: $('cfg-cor2').value,
         logo: logoTemp ?? config.logo ?? '',
@@ -1055,6 +1073,7 @@
     renderFinanceiro();
     renderGraduacao();
     renderFaixas();
+    renderAvisos();
     renderAvulsos();
     renderRelatorios();
     if (alunoGraus && $('modal-graus').classList.contains('show')) renderHistorico();
@@ -1117,7 +1136,7 @@
       }[st];
       const acao = st === 'pago'
         ? `<button class="sm sec" data-desfazer="${reg.id}">↩️ Desfazer</button>`
-        : `<button class="sm" data-recebido="${reg.id}">✅ Recebido</button>`;
+        : `<button class="sm" data-whats="${reg.id}">📲 Avisar</button><button class="sm" data-recebido="${reg.id}">✅ Recebido</button>`;
       return `<tr><td>${avatar(a)}<strong>${esc(a.nome)}</strong></td><td>${plano}</td><td>${reais(reg.valor)}</td>
         <td>${badge}</td><td>${acao}</td></tr>`;
     }).join('') : '<tr><td colspan="5" class="muted">Nenhum aluno ativo.</td></tr>';
@@ -1209,6 +1228,69 @@
       if (f) await subirFaixa(f.dataset.faixaUp);
     } catch (err) {
       alert('Não foi possível atualizar: ' + err.message);
+    }
+  });
+
+  // ---------- Avisos de cobrança (WhatsApp) ----------
+  const dataBR = iso => iso ? iso.split('-').reverse().join('/') : '';
+
+  function montarMensagem(p, a) {
+    const atrasado = statusEfetivo(p) === 'atrasado';
+    const modelo = config.msgCobranca || MSG_PADRAO;
+    const valores = {
+      nome: (a.nome || '').split(' ')[0],
+      academia: config.nome,
+      descricao: p.avulso ? p.descricao : 'mensalidade',
+      valor: reais(p.valor),
+      situacao: atrasado ? 'venceu em' : 'vence em',
+      vencimento: dataBR(p.vencimento),
+      pix: config.chavePix ? `Chave PIX: ${config.chavePix}. ` : ''
+    };
+    return modelo.replace(/\{(\w+)\}/g, (m, k) => k in valores ? valores[k] : m);
+  }
+
+  function abrirWhats(pagId) {
+    const p = pagamentos.find(x => x.id === pagId);
+    const a = p && alunos.find(x => x.id === p.alunoId);
+    if (!a) return;
+    let tel = String(a.telefone || '').replace(/\D/g, '');
+    if (tel.length < 10) return alert(`${a.nome} não tem telefone cadastrado. Edite o aluno e preencha o WhatsApp.`);
+    if (tel.length <= 11) tel = '55' + tel;
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(montarMensagem(p, a))}`, '_blank');
+  }
+
+  function renderAvisos() {
+    if (!$('avisos-lista')) return;
+    const limite = new Date();
+    limite.setDate(limite.getDate() + 3);
+    const ate = `${limite.getFullYear()}-${String(limite.getMonth() + 1).padStart(2, '0')}-${String(limite.getDate()).padStart(2, '0')}`;
+    const lista = pagamentos
+      .filter(p => p.status !== 'pago' && p.vencimento <= ate && alunos.some(a => a.id === p.alunoId))
+      .sort((x, y) => x.vencimento.localeCompare(y.vencimento));
+
+    $('avisos-lista').innerHTML = lista.length ? lista.map(p => {
+      const a = alunos.find(x => x.id === p.alunoId);
+      const atrasado = statusEfetivo(p) === 'atrasado';
+      return `
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px; margin-bottom:8px; background:#f9f9f9; border-left:4px solid ${atrasado ? '#dc3545' : '#ffc107'}; border-radius:6px;">
+          ${avatar(a)}
+          <div style="flex:1; min-width:160px;">
+            <strong>${esc(a.nome)}</strong> · ${esc(p.avulso ? p.descricao : 'Mensalidade')}<br>
+            <small>${reais(p.valor)} · ${atrasado ? '<b style="color:#dc3545;">venceu em ' : 'vence em '}${dataBR(p.vencimento)}${atrasado ? '</b>' : ''}</small>
+          </div>
+          <button class="sm" data-whats="${p.id}">📲 Avisar</button>
+          <button class="sm" data-recebido="${p.id}">✅ Recebido</button>
+        </div>`;
+    }).join('') : '<p class="muted">Nenhum pagamento atrasado ou vencendo nos próximos dias. 🎉</p>';
+  }
+
+  document.addEventListener('click', async e => {
+    const w = e.target.closest('[data-whats]');
+    if (w) return abrirWhats(w.dataset.whats);
+    const r = e.target.closest('#avisos-lista [data-recebido]');
+    if (r) {
+      try { await setDoc(doc(db, 'pagamentos', r.dataset.recebido), { status: 'pago', dataPagamento: hoje() }, { merge: true }); }
+      catch (err) { alert('Não foi possível atualizar: ' + err.message); }
     }
   });
 
@@ -1356,7 +1438,7 @@
       const situacao = st === 'pago' ? 'Pago' : st === 'atrasado' ? 'Atrasado' : 'A vencer';
       const acao = st === 'pago'
         ? `<button class="sm sec" data-desfazer="${p.id}">↩️ Desfazer</button>`
-        : `<button class="sm" data-recebido="${p.id}">✅ Recebido</button>`;
+        : `<button class="sm" data-whats="${p.id}">📲 Avisar</button><button class="sm" data-recebido="${p.id}">✅ Recebido</button>`;
       return `<tr><td>${esc(a?.nome || '-')}</td><td>${esc(p.descricao)}</td><td>${reais(p.valor)}</td>
         <td>${esc(p.vencimento)}</td><td>${situacao}</td><td>${acao}</td></tr>`;
     }).join('') : '<tr><td class="muted">Nenhuma cobrança avulsa neste mês.</td></tr>';
