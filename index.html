@@ -83,12 +83,16 @@
       <img id="logo-academia" alt="" class="hidden" style="max-height:44px; border-radius:6px; background:#fff;">
       <h1 id="titulo-academia">🥋 Academia</h1>
     </div>
-    <button class="sec" id="btn-sair">Sair</button>
+    <div style="display:flex; gap:8px;">
+      <button class="sec" id="btn-area-dono">🔓 Área do dono</button>
+      <button class="sec" id="btn-sair">Sair</button>
+    </div>
   </header>
 
   <main>
     <div class="tabs">
-      <button class="tab ativa" data-tab="dashboard">📊 Início</button>
+      <button class="tab ativa" data-tab="recepcao">🏠 Recepção</button>
+      <button class="tab" data-tab="dashboard">📊 Início</button>
       <button class="tab" data-tab="alunos">👥 Alunos</button>
       <button class="tab" data-tab="presenca">✓ Presença</button>
       <button class="tab" data-tab="financeiro">💰 Financeiro</button>
@@ -97,8 +101,20 @@
       <button class="tab" data-tab="config">⚙️ Configurações</button>
     </div>
 
+    <!-- RECEPÇÃO (sem valores nem quantidades) -->
+    <div id="tab-recepcao">
+      <div class="card" style="text-align:center;">
+        <h2 id="recepcao-nome" style="margin-top:0;"></h2>
+        <p id="recepcao-data" class="muted" style="text-transform:capitalize;"></p>
+      </div>
+      <div class="card">
+        <h2>Aulas de hoje</h2>
+        <div id="recepcao-aulas"></div>
+      </div>
+    </div>
+
     <!-- INÍCIO -->
-    <div id="tab-dashboard">
+    <div id="tab-dashboard" class="hidden">
       <div class="stats">
         <div class="stat"><small>Alunos ativos</small><div id="st-ativos">0</div></div>
         <div class="stat"><small>Turmas</small><div id="st-turmas">0</div></div>
@@ -256,6 +272,10 @@
           <div><label>Nome da academia</label><input type="text" id="cfg-nome"></div>
           <div><label>Dia de vencimento (1 a 28)</label><input type="number" id="cfg-venc" min="1" max="28"></div>
         </div>
+        <div class="row">
+          <div><label>Senha da área do dono (preencha só para trocar)</label><input type="password" id="cfg-senha" placeholder="Nova senha"></div>
+        </div>
+
         <h2 style="margin-top:22px;">Identidade visual</h2>
         <div class="row">
           <div><label>Logo (aparece no topo do sistema)</label><input type="file" id="cfg-logo" accept="image/*"><img id="cfg-logo-preview" class="hidden" alt="" style="max-height:70px; margin-top:8px;"></div>
@@ -324,6 +344,8 @@
       <div><label>Telefone / WhatsApp</label><input type="tel" id="a-tel"></div>
       <div><label>E-mail</label><input type="email" id="a-email"></div>
     </div>
+    <label>Dia de vencimento (opcional, deixe em branco para usar o padrão da academia)</label>
+    <input type="number" id="a-venc" min="1" max="28" placeholder="Padrão da academia">
     <label>Valor específico (opcional, substitui o valor do plano)</label>
     <input type="number" id="a-valor-esp" min="0" step="0.01" placeholder="Deixe em branco para usar o valor do plano">
     <label>Turmas</label>
@@ -419,6 +441,7 @@
   const avatar = a => a.foto
     ? `<img class="avatar" src="${a.foto}" alt="">`
     : `<span class="avatar avatar-v">${esc((a.nome || '?').charAt(0).toUpperCase())}</span>`;
+  const diaDoAluno = a => a.diaVencimento || config.diaVencimento || 10;
   const valorDoAluno = a => (a.valorEspecifico != null && !isNaN(a.valorEspecifico))
     ? Number(a.valorEspecifico)
     : (config.planos[a.plano || '2x'] || 0);
@@ -442,7 +465,10 @@
     }
   });
 
-  $('btn-sair').addEventListener('click', () => signOut(auth));
+  $('btn-sair').addEventListener('click', () => {
+    areaDonoLiberada = false;
+    signOut(auth);
+  });
 
   if (modoAluno) {
     iniciarModoAluno();
@@ -460,6 +486,7 @@
 
   // ---------- Dados em tempo real (Firestore) ----------
   function iniciarDados() {
+    aplicarBloqueio();
     pararDados();
     unsubs.push(onSnapshot(collection(db, 'alunos'), snap => {
       alunos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -474,6 +501,7 @@
       turmas.sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
       renderTurmas();
       renderInicio();
+      renderRecepcao();
     }));
     iniciarPresenca();
     iniciarFinanceiro();
@@ -502,7 +530,7 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('ativa'));
       btn.classList.add('ativa');
-      ['dashboard','alunos','presenca','financeiro','relatorios','turmas','config'].forEach(t => {
+      ['recepcao','dashboard','alunos','presenca','financeiro','relatorios','turmas','config'].forEach(t => {
         $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
       });
     });
@@ -571,6 +599,7 @@
     $('a-tel').value = a?.telefone || '';
     $('a-email').value = a?.email || '';
     $('a-valor-esp').value = a?.valorEspecifico ?? '';
+    $('a-venc').value = a?.diaVencimento ?? '';
     $('a-foto').value = '';
     fotoTemp = a?.foto || null;
     $('a-preview').src = fotoTemp || '';
@@ -616,7 +645,8 @@
       email: $('a-email').value.trim(),
       turmas: [...document.querySelectorAll('.a-turma:checked')].map(c => c.value),
       foto: fotoTemp || '',
-      valorEspecifico: $('a-valor-esp').value === '' ? null : parseFloat($('a-valor-esp').value)
+      valorEspecifico: $('a-valor-esp').value === '' ? null : parseFloat($('a-valor-esp').value),
+      diaVencimento: $('a-venc').value === '' ? null : Math.min(28, Math.max(1, parseInt($('a-venc').value)))
     };
     try {
       if (editandoAlunoId) {
@@ -632,7 +662,10 @@
       if (editandoAlunoId) {
         const cobranca = pagamentos.find(p => p.alunoId === editandoAlunoId && p.mes === mesAtual() && !p.avulso);
         if (cobranca && cobranca.status !== 'pago') {
-          await setDoc(doc(db, 'pagamentos', cobranca.id), { valor: valorDoAluno(dados) }, { merge: true });
+          await setDoc(doc(db, 'pagamentos', cobranca.id), {
+            valor: valorDoAluno(dados),
+            vencimento: `${mesAtual()}-${String(diaDoAluno(dados)).padStart(2, '0')}`
+          }, { merge: true });
         }
       }
       $('modal-aluno').classList.remove('show');
@@ -753,7 +786,8 @@
         requisitos,
         cor1: $('cfg-cor1').value,
         cor2: $('cfg-cor2').value,
-        logo: logoTemp ?? config.logo ?? ''
+        logo: logoTemp ?? config.logo ?? '',
+        senhaAdmin: $('cfg-senha').value.trim() || config.senhaAdmin || '1234'
       }, { merge: true });
       msg('cfg-msg', 'Configurações salvas.', 'ok');
     } catch (err) {
@@ -776,6 +810,7 @@
       const d = snap.docs[0];
       sessaoAtiva = d ? { id: d.id, ...d.data() } : null;
       renderPresenca();
+      renderRecepcao();
     }));
     unsubs.push(onSnapshot(collection(db, 'presencas'), snap => {
       presencas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1005,7 +1040,7 @@
           alunoId: a.id,
           mes,
           valor: valorDoAluno(a),
-          vencimento: `${mes}-${dia}`,
+          vencimento: `${mes}-${String(diaDoAluno(a)).padStart(2, '0')}`,
           status: 'pendente',
           dataPagamento: ''
         }, { merge: true });
@@ -1035,7 +1070,9 @@
 
     $('fin-tabela').innerHTML = ativos.length ? ativos.map(a => {
       const reg = doMes.find(p => p.alunoId === a.id && !p.avulso);
-      const plano = NOMES_PLANO[a.plano || '2x'] + (a.valorEspecifico != null ? ' · <b>valor especial</b>' : '');
+      const plano = NOMES_PLANO[a.plano || '2x']
+        + (a.valorEspecifico != null ? ' · <b>valor especial</b>' : '')
+        + ` · venc. dia ${diaDoAluno(a)}`;
       if (!reg) {
         return `<tr><td>${avatar(a)}<strong>${esc(a.nome)}</strong></td><td>${plano}</td><td>${reais(valorDoAluno(a))}</td>
           <td><span class="badge b-trancado">Sem cobrança</span></td><td></td></tr>`;
@@ -1376,6 +1413,65 @@
     } catch (err) {
       alert('Não foi possível atualizar: ' + err.message);
     }
+  });
+
+  // ---------- Recepção e área do dono ----------
+  const TABS_RESTRITAS = ['dashboard', 'alunos', 'financeiro', 'relatorios', 'turmas', 'config'];
+  let areaDonoLiberada = false;
+
+  function irPara(tab) {
+    const botao = document.querySelector(`.tab[data-tab="${tab}"]`);
+    if (botao) botao.click();
+  }
+
+  function aplicarBloqueio() {
+    document.querySelectorAll('.tab').forEach(b => {
+      if (TABS_RESTRITAS.includes(b.dataset.tab)) b.classList.toggle('hidden', !areaDonoLiberada);
+    });
+    $('btn-area-dono').textContent = areaDonoLiberada ? '🔒 Bloquear' : '🔓 Área do dono';
+    if (!areaDonoLiberada) irPara('recepcao');
+  }
+
+  $('btn-area-dono').addEventListener('click', () => {
+    if (areaDonoLiberada) {
+      areaDonoLiberada = false;
+      aplicarBloqueio();
+      return;
+    }
+    const senha = prompt('Digite a senha da área do dono:');
+    if (senha === null) return;
+    if (senha !== (config.senhaAdmin || '1234')) return alert('Senha incorreta.');
+    areaDonoLiberada = true;
+    aplicarBloqueio();
+    irPara('dashboard');
+  });
+
+  function renderRecepcao() {
+    if (!$('recepcao-aulas')) return;
+    const agora = new Date();
+    $('recepcao-nome').textContent = config.nome;
+    $('recepcao-data').textContent = agora.toLocaleDateString('pt-BR',
+      { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    const codigo = MAPA_DIA[agora.getDay()];
+    const aulas = turmas.filter(t => (t.dias || []).includes(codigo));
+    $('recepcao-aulas').innerHTML = aulas.length ? aulas.map(t => {
+      const emAndamento = sessaoAtiva && sessaoAtiva.turmaId === t.id;
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:14px; margin-bottom:10px; background:#f9f9f9; border-left:5px solid ${config.cor1 || '#667eea'}; border-radius:6px;">
+          <div><strong style="font-size:18px;">${esc(t.horario)} · ${esc(t.nome)}</strong><br>
+            <span class="muted">Professor: ${esc(t.instrutor || '-')}</span></div>
+          <div>${emAndamento
+            ? '<span class="badge b-ativo">Em andamento</span>'
+            : `<button data-chamada="${t.id}">✓ Fazer chamada</button>`}</div>
+        </div>`;
+    }).join('') : '<p class="muted">Nenhuma aula programada para hoje.</p>';
+  }
+
+  $('recepcao-aulas').addEventListener('click', e => {
+    const b = e.target.closest('[data-chamada]');
+    if (!b) return;
+    irPara('presenca');
+    $('pr-turma').value = b.dataset.chamada;
   });
 
   // ---------- Fechar modais ----------
