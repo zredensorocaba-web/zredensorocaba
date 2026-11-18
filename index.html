@@ -79,7 +79,10 @@
 <!-- APP -->
 <section id="tela-app" class="hidden">
   <header>
-    <h1 id="titulo-academia">🥋 Academia</h1>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <img id="logo-academia" alt="" class="hidden" style="max-height:44px; border-radius:6px; background:#fff;">
+      <h1 id="titulo-academia">🥋 Academia</h1>
+    </div>
     <button class="sec" id="btn-sair">Sair</button>
   </header>
 
@@ -89,6 +92,7 @@
       <button class="tab" data-tab="alunos">👥 Alunos</button>
       <button class="tab" data-tab="presenca">✓ Presença</button>
       <button class="tab" data-tab="financeiro">💰 Financeiro</button>
+      <button class="tab" data-tab="relatorios">📈 Relatórios</button>
       <button class="tab" data-tab="turmas">⏰ Turmas</button>
       <button class="tab" data-tab="config">⚙️ Configurações</button>
     </div>
@@ -173,7 +177,58 @@
             <tbody id="fin-tabela"></tbody>
           </table>
         </div>
+        <h3 style="margin-top:22px;">Cobrança avulsa (matrícula, kimono, uniforme...)</h3>
+        <div class="row">
+          <div><label>Aluno</label><select id="av-aluno"></select></div>
+          <div><label>Descrição</label><input type="text" id="av-desc" placeholder="Ex: Kimono"></div>
+          <div><label>Valor (R$)</label><input type="number" id="av-valor" min="0" step="0.01"></div>
+          <div><label>Vencimento</label><input type="date" id="av-venc"></div>
+        </div>
+        <div style="margin-top:12px;"><button id="btn-avulso">➕ Lançar cobrança</button></div>
+        <div id="av-msg"></div>
+        <div style="overflow-x:auto; margin-top:12px;">
+          <table>
+            <thead><tr><th>Aluno</th><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Situação</th><th></th></tr></thead>
+            <tbody id="av-lista"></tbody>
+          </table>
+        </div>
         <p class="muted" style="margin-top:12px;">As cobranças são criadas sozinhas no início de cada mês. Quando o aluno pagar, por dinheiro, PIX ou cartão, basta marcar ✅ Recebido.</p>
+      </div>
+    </div>
+
+    <!-- RELATÓRIOS -->
+    <div id="tab-relatorios" class="hidden">
+      <div class="card">
+        <h2>Frequência por faixa</h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Faixa</th><th>Alunos ativos</th><th>Aulas (últimos 7 dias)</th><th>Aulas (mês atual)</th><th>Média por aluno</th></tr></thead>
+            <tbody id="rel-frequencia"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Receita recebida (últimos 6 meses)</h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Mês</th><th>Recebido</th></tr></thead>
+            <tbody id="rel-receita"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <h2 style="margin:0;">Alunos e frequência no mês</h2>
+          <button id="btn-csv">📥 Exportar CSV</button>
+        </div>
+        <div style="overflow-x:auto; margin-top:12px;">
+          <table>
+            <thead><tr><th>Aluno</th><th>Faixa</th><th>Plano</th><th>Aulas no mês</th><th>Graus na faixa</th></tr></thead>
+            <tbody id="rel-alunos"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -201,6 +256,13 @@
           <div><label>Nome da academia</label><input type="text" id="cfg-nome"></div>
           <div><label>Dia de vencimento (1 a 28)</label><input type="number" id="cfg-venc" min="1" max="28"></div>
         </div>
+        <h2 style="margin-top:22px;">Identidade visual</h2>
+        <div class="row">
+          <div><label>Logo (aparece no topo do sistema)</label><input type="file" id="cfg-logo" accept="image/*"><img id="cfg-logo-preview" class="hidden" alt="" style="max-height:70px; margin-top:8px;"></div>
+          <div><label>Cor principal</label><input type="color" id="cfg-cor1" style="height:44px; padding:3px;"></div>
+          <div><label>Cor secundária</label><input type="color" id="cfg-cor2" style="height:44px; padding:3px;"></div>
+        </div>
+
         <h2 style="margin-top:22px;">Valor por plano (R$)</h2>
         <div class="row">
           <div><label>1x por semana</label><input type="number" id="cfg-p-1x" min="0" step="0.01"></div>
@@ -216,7 +278,7 @@
           <div><label>Marrom</label><input type="number" id="req-marrom" min="1"></div>
           <div><label>Preta</label><input type="number" id="req-preta" min="1"></div>
         </div>
-        <div style="margin-top:18px;"><button id="btn-salvar-config">💾 Salvar configurações</button></div>
+        <div style="margin-top:18px;"><button id="btn-salvar-config">💾 Salvar configurações</button> <button id="btn-backup" class="sec" style="margin-left:8px;">📦 Baixar backup (JSON)</button></div>
         <div id="cfg-msg"></div>
       </div>
     </div>
@@ -262,6 +324,8 @@
       <div><label>Telefone / WhatsApp</label><input type="tel" id="a-tel"></div>
       <div><label>E-mail</label><input type="email" id="a-email"></div>
     </div>
+    <label>Valor específico (opcional, substitui o valor do plano)</label>
+    <input type="number" id="a-valor-esp" min="0" step="0.01" placeholder="Deixe em branco para usar o valor do plano">
     <label>Turmas</label>
     <div id="a-turmas" class="checks"></div>
     <label>Foto</label>
@@ -273,6 +337,15 @@
       <button type="submit">Salvar</button>
     </div>
   </form>
+</div>
+
+<!-- MODAL HISTÓRICO DE GRAUS -->
+<div id="modal-graus" class="modal">
+  <div class="modal-box">
+    <h3>🎖️ Histórico de graus</h3>
+    <div id="graus-conteudo"></div>
+    <div class="acoes"><button type="button" class="sec" data-fechar="modal-graus">Fechar</button></div>
+  </div>
 </div>
 
 <!-- MODAL TURMA -->
@@ -330,6 +403,7 @@
   const REQUISITOS_PADRAO = { branca: 30, azul: 60, roxa: 100, marrom: 150, preta: 200 };
   let config = { nome: 'Academia Jiu-Jitsu', planos: { ...PLANOS_PADRAO }, diaVencimento: 10, requisitos: { ...REQUISITOS_PADRAO } };
   let alunosCarregados = false, configCarregada = false, pagamentosCarregados = false;
+  let logoTemp = null;
   let unsubs = [];
   let editandoAlunoId = null;
   let editandoTurmaId = null;
@@ -345,7 +419,9 @@
   const avatar = a => a.foto
     ? `<img class="avatar" src="${a.foto}" alt="">`
     : `<span class="avatar avatar-v">${esc((a.nome || '?').charAt(0).toUpperCase())}</span>`;
-  const valorDoAluno = a => config.planos[a.plano || '2x'] || 0;
+  const valorDoAluno = a => (a.valorEspecifico != null && !isNaN(a.valorEspecifico))
+    ? Number(a.valorEspecifico)
+    : (config.planos[a.plano || '2x'] || 0);
 
   function msg(elId, texto, tipo = 'erro') {
     const el = $(elId);
@@ -407,6 +483,7 @@
         config = { ...config, ...d, planos: { ...PLANOS_PADRAO, ...(d.planos || {}) }, requisitos: { ...REQUISITOS_PADRAO, ...(d.requisitos || {}) } };
       }
       $('titulo-academia').textContent = '🥋 ' + config.nome;
+      aplicarTema();
       document.title = config.nome;
       configCarregada = true;
       preencherConfig();
@@ -425,7 +502,7 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('ativa'));
       btn.classList.add('ativa');
-      ['dashboard','alunos','presenca','financeiro','turmas','config'].forEach(t => {
+      ['dashboard','alunos','presenca','financeiro','relatorios','turmas','config'].forEach(t => {
         $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
       });
     });
@@ -461,6 +538,7 @@
         <td><span class="badge b-${a.status || 'ativo'}">${capitalizar(a.status || 'ativo')}</span></td>
         <td style="white-space:nowrap;">
           <button class="sm" data-grau="${a.id}">🥋 Grau</button>
+          <button class="sm" data-historico="${a.id}">🎖️ Histórico</button>
           <button class="sm" data-faixa-up="${a.id}">⬆️ Faixa</button>
           <button class="sm" data-editar-aluno="${a.id}">✏️ Editar</button>
           <button class="sm del" data-excluir-aluno="${a.id}">🗑️</button>
@@ -492,6 +570,7 @@
     $('a-inicio').value = a?.dataInicio || hoje();
     $('a-tel').value = a?.telefone || '';
     $('a-email').value = a?.email || '';
+    $('a-valor-esp').value = a?.valorEspecifico ?? '';
     $('a-foto').value = '';
     fotoTemp = a?.foto || null;
     $('a-preview').src = fotoTemp || '';
@@ -536,7 +615,8 @@
       telefone: $('a-tel').value.trim(),
       email: $('a-email').value.trim(),
       turmas: [...document.querySelectorAll('.a-turma:checked')].map(c => c.value),
-      foto: fotoTemp || ''
+      foto: fotoTemp || '',
+      valorEspecifico: $('a-valor-esp').value === '' ? null : parseFloat($('a-valor-esp').value)
     };
     try {
       if (editandoAlunoId) {
@@ -548,6 +628,12 @@
           graus: [],
           historico_faixa: [{ faixa: dados.faixa, data: dados.dataInicio || hoje() }]
         });
+      }
+      if (editandoAlunoId) {
+        const cobranca = pagamentos.find(p => p.alunoId === editandoAlunoId && p.mes === mesAtual() && !p.avulso);
+        if (cobranca && cobranca.status !== 'pago') {
+          await setDoc(doc(db, 'pagamentos', cobranca.id), { valor: valorDoAluno(dados) }, { merge: true });
+        }
       }
       $('modal-aluno').classList.remove('show');
     } catch (err) {
@@ -639,6 +725,13 @@
     if (document.activeElement && document.getElementById('tab-config').contains(document.activeElement)) return;
     $('cfg-nome').value = config.nome;
     $('cfg-venc').value = config.diaVencimento;
+    $('cfg-cor1').value = config.cor1 || '#667eea';
+    $('cfg-cor2').value = config.cor2 || '#764ba2';
+    if (logoTemp === null && config.logo) logoTemp = config.logo;
+    if (logoTemp) {
+      $('cfg-logo-preview').src = logoTemp;
+      $('cfg-logo-preview').classList.remove('hidden');
+    }
     ['1x','2x','3x','livre'].forEach(p => { $('cfg-p-' + p).value = config.planos[p]; });
     ['branca','azul','roxa','marrom','preta'].forEach(f => { $('req-' + f).value = config.requisitos[f]; });
   }
@@ -657,7 +750,10 @@
         nome: $('cfg-nome').value.trim() || 'Academia Jiu-Jitsu',
         diaVencimento: Math.min(28, Math.max(1, parseInt($('cfg-venc').value) || 10)),
         planos,
-        requisitos
+        requisitos,
+        cor1: $('cfg-cor1').value,
+        cor2: $('cfg-cor2').value,
+        logo: logoTemp ?? config.logo ?? ''
       }, { merge: true });
       msg('cfg-msg', 'Configurações salvas.', 'ok');
     } catch (err) {
@@ -892,12 +988,15 @@
     if (alunosCarregados && configCarregada && pagamentosCarregados) gerarCobrancasDoMes();
     renderFinanceiro();
     renderGraduacao();
+    renderAvulsos();
+    renderRelatorios();
+    if (alunoGraus && $('modal-graus').classList.contains('show')) renderHistorico();
   }
 
   async function gerarCobrancasDoMes() {
     const mes = mesAtual();
     const dia = String(config.diaVencimento || 10).padStart(2, '0');
-    const jaCobrados = new Set(pagamentos.filter(p => p.mes === mes).map(p => p.alunoId));
+    const jaCobrados = new Set(pagamentos.filter(p => p.mes === mes && !p.avulso).map(p => p.alunoId));
     for (const a of alunos.filter(x => x.status === 'ativo' && !jaCobrados.has(x.id))) {
       jaCobrados.add(a.id);
       try {
@@ -905,7 +1004,7 @@
         await setDoc(doc(db, 'pagamentos', `${mes}_${a.id}`), {
           alunoId: a.id,
           mes,
-          valor: config.planos[a.plano || '2x'] || 0,
+          valor: valorDoAluno(a),
           vencimento: `${mes}-${dia}`,
           status: 'pendente',
           dataPagamento: ''
@@ -935,8 +1034,8 @@
     ].map(([t, v]) => `<div class="stat"><small>${t}</small><div style="font-size:20px;">${v}</div></div>`).join('');
 
     $('fin-tabela').innerHTML = ativos.length ? ativos.map(a => {
-      const reg = doMes.find(p => p.alunoId === a.id);
-      const plano = NOMES_PLANO[a.plano || '2x'];
+      const reg = doMes.find(p => p.alunoId === a.id && !p.avulso);
+      const plano = NOMES_PLANO[a.plano || '2x'] + (a.valorEspecifico != null ? ' · <b>valor especial</b>' : '');
       if (!reg) {
         return `<tr><td>${avatar(a)}<strong>${esc(a.nome)}</strong></td><td>${plano}</td><td>${reais(valorDoAluno(a))}</td>
           <td><span class="badge b-trancado">Sem cobrança</span></td><td></td></tr>`;
@@ -1039,6 +1138,241 @@
     try {
       if (g) await registrarGrau(g.dataset.grau);
       if (f) await subirFaixa(f.dataset.faixaUp);
+    } catch (err) {
+      alert('Não foi possível atualizar: ' + err.message);
+    }
+  });
+
+  // ---------- Logo e cores ----------
+  function aplicarTema() {
+    const c1 = config.cor1 || '#667eea';
+    const c2 = config.cor2 || '#764ba2';
+    let estilo = document.getElementById('tema-dinamico');
+    if (!estilo) {
+      estilo = document.createElement('style');
+      estilo.id = 'tema-dinamico';
+      document.head.appendChild(estilo);
+    }
+    estilo.textContent = `
+      header, .stat { background-image: linear-gradient(135deg, ${c1} 0%, ${c2} 100%) !important; }
+      button:not(.sec):not(.del) { background: ${c1} !important; }
+      .tab.ativa { background: ${c1} !important; }
+      input:focus, select:focus { border-color: ${c1} !important; }
+    `;
+    const img = $('logo-academia');
+    if (config.logo) {
+      img.src = config.logo;
+      img.classList.remove('hidden');
+    } else {
+      img.classList.add('hidden');
+    }
+  }
+
+  $('cfg-logo').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const escala = Math.min(1, 300 / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * escala);
+        canvas.height = Math.round(img.height * escala);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        logoTemp = canvas.toDataURL('image/png');
+        $('cfg-logo-preview').src = logoTemp;
+        $('cfg-logo-preview').classList.remove('hidden');
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ---------- Cobranças avulsas ----------
+  function renderAvulsos() {
+    if (!$('av-lista')) return;
+    const select = $('av-aluno');
+    if (select.options.length !== alunos.length) {
+      select.innerHTML = alunos.map(a => `<option value="${a.id}">${esc(a.nome)}</option>`).join('');
+    }
+    const mes = $('fin-mes').value || mesAtual();
+    const avulsos = pagamentos.filter(p => p.avulso && p.mes === mes);
+    $('av-lista').innerHTML = avulsos.length ? avulsos.map(p => {
+      const a = alunos.find(x => x.id === p.alunoId);
+      const st = statusEfetivo(p);
+      const situacao = st === 'pago' ? 'Pago' : st === 'atrasado' ? 'Atrasado' : 'A vencer';
+      const acao = st === 'pago'
+        ? `<button class="sm sec" data-desfazer="${p.id}">↩️ Desfazer</button>`
+        : `<button class="sm" data-recebido="${p.id}">✅ Recebido</button>`;
+      return `<tr><td>${esc(a?.nome || '-')}</td><td>${esc(p.descricao)}</td><td>${reais(p.valor)}</td>
+        <td>${esc(p.vencimento)}</td><td>${situacao}</td><td>${acao}</td></tr>`;
+    }).join('') : '<tr><td class="muted">Nenhuma cobrança avulsa neste mês.</td></tr>';
+  }
+
+  $('btn-avulso').addEventListener('click', async () => {
+    const alunoId = $('av-aluno').value;
+    const descricao = $('av-desc').value.trim();
+    const valor = parseFloat($('av-valor').value);
+    const vencimento = $('av-venc').value;
+    if (!alunoId || !descricao || !(valor > 0) || !vencimento) {
+      return msg('av-msg', 'Preencha aluno, descrição, valor e vencimento.');
+    }
+    try {
+      await addDoc(collection(db, 'pagamentos'), {
+        alunoId, avulso: true, descricao, valor,
+        mes: vencimento.slice(0, 7), vencimento,
+        status: 'pendente', dataPagamento: ''
+      });
+      $('av-desc').value = '';
+      $('av-valor').value = '';
+      msg('av-msg', 'Cobrança lançada.', 'ok');
+    } catch (err) {
+      msg('av-msg', 'Não foi possível lançar: ' + err.message);
+    }
+  });
+
+  $('av-lista').addEventListener('click', async e => {
+    const rec = e.target.closest('[data-recebido]');
+    const des = e.target.closest('[data-desfazer]');
+    try {
+      if (rec) await setDoc(doc(db, 'pagamentos', rec.dataset.recebido), { status: 'pago', dataPagamento: hoje() }, { merge: true });
+      if (des) await setDoc(doc(db, 'pagamentos', des.dataset.desfazer), { status: 'pendente', dataPagamento: '' }, { merge: true });
+    } catch (err) {
+      alert('Não foi possível atualizar: ' + err.message);
+    }
+  });
+
+  // ---------- Relatórios ----------
+  const dataLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  function aulasNoPeriodo(alunoId, desde, ate) {
+    return new Set(
+      presencas.filter(p => p.alunoId === alunoId && p.presente && p.data >= desde && p.data <= ate)
+        .map(p => `${p.data}|${p.turmaId}`)
+    ).size;
+  }
+
+  function renderRelatorios() {
+    if (!$('rel-frequencia')) return;
+    const agora = new Date();
+    const ate = dataLocal(agora);
+    const seteAtras = new Date(agora);
+    seteAtras.setDate(agora.getDate() - 6);
+    const semanaDe = dataLocal(seteAtras);
+    const mesDe = mesAtual() + '-01';
+    const ativos = alunos.filter(a => a.status === 'ativo');
+
+    $('rel-frequencia').innerHTML = CHAVE_FAIXAS.map(f => {
+      const grupo = ativos.filter(a => a.faixa === f);
+      const semana = grupo.reduce((s, a) => s + aulasNoPeriodo(a.id, semanaDe, ate), 0);
+      const mes = grupo.reduce((s, a) => s + aulasNoPeriodo(a.id, mesDe, ate), 0);
+      const media = grupo.length ? (mes / grupo.length).toFixed(1) : '-';
+      return `<tr><td><strong>${capitalizar(f)}</strong></td><td>${grupo.length}</td><td>${semana}</td><td>${mes}</td><td>${media}</td></tr>`;
+    }).join('');
+
+    const meses = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
+      meses.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    $('rel-receita').innerHTML = meses.map(m => {
+      const total = pagamentos.filter(p => p.mes === m && p.status === 'pago').reduce((s, p) => s + Number(p.valor || 0), 0);
+      return `<tr><td>${m}</td><td>${reais(total)}</td></tr>`;
+    }).join('');
+
+    $('rel-alunos').innerHTML = alunos.length ? alunos.map(a => `
+      <tr><td>${esc(a.nome)}</td><td>${capitalizar(a.faixa)}</td><td>${NOMES_PLANO[a.plano || '2x']}</td>
+      <td>${aulasNoPeriodo(a.id, mesDe, ate)}</td>
+      <td>${(a.graus || []).filter(g => g.faixa === a.faixa).length}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="muted">Nenhum aluno cadastrado.</td></tr>';
+  }
+
+  function baixar(conteudo, nome, tipo) {
+    const blob = new Blob(['\ufeff' + conteudo], { type: tipo + ';charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = nome;
+    link.click();
+  }
+
+  $('btn-csv').addEventListener('click', () => {
+    const ate = dataLocal(new Date());
+    const mesDe = mesAtual() + '-01';
+    const linhas = [['Aluno', 'Faixa', 'Plano', 'Aulas no mês', 'Graus na faixa']];
+    alunos.forEach(a => linhas.push([
+      a.nome, capitalizar(a.faixa), NOMES_PLANO[a.plano || '2x'],
+      aulasNoPeriodo(a.id, mesDe, ate),
+      (a.graus || []).filter(g => g.faixa === a.faixa).length
+    ]));
+    const csv = linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    baixar(csv, `alunos-${mesAtual()}.csv`, 'text/csv');
+  });
+
+  // ---------- Backup ----------
+  $('btn-backup').addEventListener('click', () => {
+    const backup = { versao: 3, geradoEm: new Date().toISOString(), config, alunos, turmas, pagamentos, presencas };
+    baixar(JSON.stringify(backup, null, 2), `backup-academia-${hoje()}.json`, 'application/json');
+  });
+
+  // ---------- Histórico de graus ----------
+  let alunoGraus = null;
+
+  function abrirHistorico(id) {
+    alunoGraus = id;
+    renderHistorico();
+    $('modal-graus').classList.add('show');
+  }
+
+  function renderHistorico() {
+    const a = alunos.find(x => x.id === alunoGraus);
+    if (!a) return;
+    let html = `<div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+      ${avatar(a)}<div><strong>${esc(a.nome)}</strong><br><small class="muted">Faixa atual: ${capitalizar(a.faixa)}</small></div></div>`;
+
+    CHAVE_FAIXAS.forEach(f => {
+      const graus = (a.graus || []).filter(g => g.faixa === f).sort((x, y) => x.grau - y.grau);
+      const entrada = (a.historico_faixa || []).find(h => h.faixa === f);
+      if (!graus.length && !entrada) return;
+      html += `<h4 style="margin:12px 0 4px;">Faixa ${capitalizar(f)}
+        ${entrada ? `<small class="muted">(desde ${esc(entrada.data)})</small>` : ''}</h4>`;
+      html += graus.length
+        ? '<ul>' + graus.map(g => `<li style="margin-bottom:4px;">${g.grau}º grau · ${esc(g.data)}
+            <button class="sm del" data-remover-grau="${g.id}">🗑️</button></li>`).join('') + '</ul>'
+        : '<p class="muted"><small>Nenhum grau registrado nesta faixa</small></p>';
+    });
+
+    html += `<div style="margin-top:14px; border-top:1px solid #eee; padding-top:12px;">
+      <label>Adicionar grau anterior (data em que foi conquistado)</label>
+      <div style="display:flex; gap:8px;"><input type="date" id="gr-data"><button id="btn-grau-anterior">➕ Adicionar</button></div></div>`;
+    $('graus-conteudo').innerHTML = html;
+  }
+
+  $('lista-alunos').addEventListener('click', e => {
+    const h = e.target.closest('[data-historico]');
+    if (h) abrirHistorico(h.dataset.historico);
+  });
+
+  $('graus-conteudo').addEventListener('click', async e => {
+    const a = alunos.find(x => x.id === alunoGraus);
+    if (!a) return;
+    const remover = e.target.closest('[data-remover-grau]');
+    const adicionar = e.target.closest('#btn-grau-anterior');
+    try {
+      if (remover) {
+        if (!confirm('Remover este grau do histórico?')) return;
+        await setDoc(doc(db, 'alunos', a.id), {
+          graus: (a.graus || []).filter(g => g.id !== remover.dataset.removerGrau)
+        }, { merge: true });
+      }
+      if (adicionar) {
+        const data = $('gr-data').value;
+        if (!data) return alert('Informe a data em que o grau foi conquistado.');
+        const numero = (a.graus || []).filter(g => g.faixa === a.faixa).length + 1;
+        await setDoc(doc(db, 'alunos', a.id), {
+          graus: [...(a.graus || []), { id: Date.now().toString(), faixa: a.faixa, grau: numero, data }]
+        }, { merge: true });
+      }
     } catch (err) {
       alert('Não foi possível atualizar: ' + err.message);
     }
