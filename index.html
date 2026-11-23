@@ -200,6 +200,14 @@
           <h2>Iniciar aula</h2>
           <label>Turma</label>
           <select id="pr-turma"></select>
+          <div style="margin-top:12px;"><button type="button" class="sec sm" id="btn-add-destaque">➕ Adicionar destaque da aula (foco e link)</button></div>
+          <div id="pr-destaque-campos" class="hidden">
+          <label>Foco da aula (opcional)</label>
+          <input type="text" id="pr-tema" placeholder="Ex: Passagem de guarda e raspagens">
+          <label>Link (opcional: YouTube, Instagram...)</label>
+          <input type="text" id="pr-link" placeholder="https://...">
+          <p class="muted" style="margin:4px 0 0;">Aparece para os alunos quando eles escaneiam o QR code.</p>
+          </div>
           <div style="margin-top:14px;"><button id="btn-iniciar-aula">▶️ Iniciar aula</button></div>
           <p class="muted">Ao iniciar, aparece um QR code para os alunos escanearem com o celular.</p>
         </div>
@@ -207,8 +215,9 @@
         <div id="pr-com-aula" class="hidden">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div><h2 style="margin:0;" id="pr-nome"></h2><span class="muted" id="pr-info"></span></div>
-            <button class="del sm" id="btn-encerrar-aula">⏹️ Encerrar aula</button>
+            <div><button class="sm" id="btn-editar-destaque">✏️ Editar destaque</button><button class="del sm" id="btn-encerrar-aula">⏹️ Encerrar aula</button></div>
           </div>
+          <div id="pr-destaque"></div>
           <div class="row" style="margin-top:18px; grid-template-columns: minmax(220px, 280px) 1fr; align-items:start;">
             <div class="qr-box">
               <div id="pr-qr"></div>
@@ -325,6 +334,10 @@
           <div><label>Senha da área do dono (preencha só para trocar)</label><input type="password" id="cfg-senha" placeholder="Nova senha"></div>
         </div>
 
+        <h2 style="margin-top:22px;">Destaque da aula</h2>
+        <label style="font-weight:normal; display:flex; align-items:center; gap:8px;"><input type="checkbox" id="cfg-destaque" style="width:auto;"> Mostrar os campos de foco e link sempre que iniciar uma aula</label>
+        <p class="muted">Desligado: os campos ficam escondidos e o professor só adiciona um destaque quando quiser, pelo botão "➕ Adicionar destaque" na hora de iniciar a aula.</p>
+
         <h2 style="margin-top:22px;">Mensagem de cobrança (WhatsApp)</h2>
         <div class="row">
           <div><label>Chave PIX (opcional, vai na mensagem)</label><input type="text" id="cfg-pix" placeholder="CPF, e-mail, telefone ou chave aleatória"></div>
@@ -374,6 +387,7 @@
   <div class="card" style="max-width:460px; margin:30px auto; text-align:center;">
     <h2 id="aluno-titulo">🥋 Check-in</h2>
     <p id="aluno-sub" class="muted"></p>
+    <div id="aluno-destaque"></div>
     <div id="aluno-status"></div>
     <div id="aluno-lista" style="display:grid; gap:8px; margin-top:14px; text-align:left;"></div>
   </div>
@@ -607,6 +621,7 @@
       $('titulo-academia').textContent = '🥋 ' + config.nome;
       aplicarTema();
       document.title = config.nome;
+      atualizarCamposDestaque();
       configCarregada = true;
       preencherConfig();
       renderInicio();
@@ -872,6 +887,7 @@
       $('cfg-logo-preview').classList.remove('hidden');
     }
     $('cfg-pix').value = config.chavePix || '';
+    $('cfg-destaque').checked = !!config.destaqueAula;
     $('cfg-msg-modelo').value = config.msgCobranca || MSG_PADRAO;
     $('cfg-msg-aniv-idade').value = config.msgAnivIdade || MSG_ANIV_IDADE;
     $('cfg-msg-aniv-academia').value = config.msgAnivAcademia || MSG_ANIV_ACADEMIA;
@@ -895,6 +911,7 @@
         planos,
         requisitos,
         chavePix: $('cfg-pix').value.trim(),
+        destaqueAula: $('cfg-destaque').checked,
         msgCobranca: $('cfg-msg-modelo').value.trim() || MSG_PADRAO,
         msgAnivIdade: $('cfg-msg-aniv-idade').value.trim() || MSG_ANIV_IDADE,
         msgAnivAcademia: $('cfg-msg-aniv-academia').value.trim() || MSG_ANIV_ACADEMIA,
@@ -955,6 +972,7 @@
 
     if (semAula) {
       pararTokens();
+      atualizarCamposDestaque();
       const selecionada = $('pr-turma').value;
       $('pr-turma').innerHTML = turmas.length
         ? turmas.map(t => `<option value="${t.id}">${esc(rotuloTurma(t))}</option>`).join('')
@@ -971,6 +989,9 @@
 
     $('pr-nome').textContent = sessaoAtiva.turmaNome;
     $('pr-info').textContent = `${sessaoAtiva.horario} · aula iniciada hoje`;
+    $('pr-destaque').innerHTML = htmlDestaque(sessaoAtiva);
+    // Botão de editar só aparece se o recurso estiver ligado ou a aula já tiver destaque
+    $('btn-editar-destaque').classList.toggle('hidden', !(config.destaqueAula || sessaoAtiva.tema || sessaoAtiva.link));
 
     if (!timerToken) timerToken = setInterval(rotacionarToken, 60000);
 
@@ -1010,6 +1031,9 @@
     const roster = alunos
       .filter(a => a.status === 'ativo' && (a.turmas || []).includes(turmaId))
       .map(a => ({ id: a.id, nome: a.nome }));
+    const linkDigitado = $('pr-link').value.trim();
+    const linkAula = linkSeguro(linkDigitado);
+    if (linkDigitado && !linkAula) return alert('O link informado não é válido. Confira o endereço (ex: https://youtube.com/...).');
     try {
       await addDoc(collection(db, 'sessoes'), {
         turmaId,
@@ -1020,8 +1044,14 @@
         tokenAtual: gerarToken(),
         tokenAnterior: '',
         roster,
+        tema: $('pr-tema').value.trim(),
+        link: linkAula,
         iniciadaEm: new Date().toISOString()
       });
+      $('pr-tema').value = '';
+      $('pr-link').value = '';
+      destaqueAberto = false;
+      atualizarCamposDestaque();
     } catch (err) {
       alert('Não foi possível iniciar a aula: ' + err.message);
     }
@@ -1062,6 +1092,67 @@
     }
   });
 
+  // ---------- Destaque da aula (foco + link) ----------
+  // Só aceita http(s); qualquer outra coisa (ex: javascript:) é descartada
+  function linkSeguro(u) {
+    u = String(u || '').trim();
+    if (!u) return '';
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+    try {
+      const x = new URL(u);
+      return ['http:', 'https:'].includes(x.protocol) && x.hostname.includes('.') ? x.href : '';
+    } catch (err) { return ''; }
+  }
+
+  function rotuloLink(u) {
+    try {
+      const h = new URL(u).hostname.replace(/^www\./, '');
+      if (/youtu\.?be/.test(h)) return '▶️ Ver vídeo no YouTube';
+      if (h.includes('instagram')) return '📸 Ver no Instagram';
+    } catch (err) { /* usa o rótulo genérico */ }
+    return '🔗 Abrir link';
+  }
+
+  function htmlDestaque(s) {
+    const link = linkSeguro(s && s.link);
+    const tema = s && s.tema ? String(s.tema) : '';
+    if (!tema && !link) return '';
+    return `<div style="margin:14px 0; padding:12px 14px; background:#fff8e1; border-left:5px solid #ffc107; border-radius:6px; text-align:left;">
+      ${tema ? `<div>📌 <b>Hoje na aula:</b> ${esc(tema)}</div>` : ''}
+      ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block; margin-top:${tema ? 8 : 0}px; padding:8px 14px; background:#667eea; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; font-size:14px;">${rotuloLink(link)}</a>` : ''}
+    </div>`;
+  }
+
+  $('btn-editar-destaque').addEventListener('click', async () => {
+    if (!sessaoAtiva) return;
+    const tema = prompt('Foco da aula (deixe em branco para remover):', sessaoAtiva.tema || '');
+    if (tema === null) return;
+    const l = prompt('Link do YouTube, Instagram etc. (deixe em branco para remover):', sessaoAtiva.link || '');
+    if (l === null) return;
+    const link = linkSeguro(l);
+    if (l.trim() && !link) return alert('O link informado não é válido.');
+    try {
+      await setDoc(doc(db, 'sessoes', sessaoAtiva.id), { tema: tema.trim(), link }, { merge: true });
+    } catch (err) {
+      alert('Não foi possível salvar: ' + err.message);
+    }
+  });
+
+  // Campos de destaque: visíveis se a configuração estiver ligada ou se o professor abriu pelo botão
+  let destaqueAberto = false;
+
+  function atualizarCamposDestaque() {
+    const visivel = !!config.destaqueAula || destaqueAberto;
+    $('pr-destaque-campos').classList.toggle('hidden', !visivel);
+    $('btn-add-destaque').classList.toggle('hidden', visivel);
+  }
+
+  $('btn-add-destaque').addEventListener('click', () => {
+    destaqueAberto = true;
+    atualizarCamposDestaque();
+    $('pr-tema').focus();
+  });
+
   // ---------- Check-in do aluno (sem login) ----------
   async function iniciarModoAluno() {
     $('tela-aluno').classList.remove('hidden');
@@ -1088,6 +1179,7 @@
 
     $('aluno-titulo').textContent = '🥋 ' + s.turmaNome;
     $('aluno-sub').textContent = `${s.horario} · Escolha seu nome para marcar presença`;
+    $('aluno-destaque').innerHTML = htmlDestaque(s);
     const lista = $('aluno-lista');
     lista.innerHTML = (s.roster || []).map(a =>
       `<button class="aluno-btn" data-aluno="${a.id}">${esc(a.nome)}</button>`
@@ -1932,7 +2024,7 @@
       return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:14px; margin-bottom:10px; background:#f9f9f9; border-left:5px solid ${config.cor1 || '#667eea'}; border-radius:6px;">
           <div><strong style="font-size:18px;">${esc(t.horario)} · ${esc(t.nome)}</strong><br>
-            <span class="muted">Professor: ${esc(t.instrutor || '-')}</span></div>
+            <span class="muted">Professor: ${esc(t.instrutor || '-')}</span>${emAndamento && sessaoAtiva.tema ? `<br><span>📌 ${esc(sessaoAtiva.tema)}</span>` : ''}</div>
           <div>${emAndamento
             ? '<span class="badge b-ativo">Em andamento</span>'
             : `<button data-chamada="${t.id}">✓ Fazer chamada</button>`}</div>
