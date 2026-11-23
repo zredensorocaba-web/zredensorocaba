@@ -1212,12 +1212,21 @@
     return '🔗 Abrir link';
   }
 
-  function htmlDestaque(s) {
+  // aluno = true na tela de check-in: mostra também o objetivo e a programação da aula
+  function htmlDestaque(s, aluno = false) {
     const link = linkSeguro(s && s.link);
     const tema = s && s.tema ? String(s.tema) : '';
-    if (!tema && !link) return '';
+    const objetivo = aluno && s && s.objetivo ? String(s.objetivo) : '';
+    const blocos = aluno && s && Array.isArray(s.blocos) ? s.blocos.filter(b => Number(b.minutos) > 0) : [];
+    if (!tema && !link && !objetivo && !blocos.length) return '';
+    const programacao = blocos.length ? `<div style="margin-top:10px; font-size:14px;"><b>Programação da aula:</b>${blocos.map(b => {
+      const t = TIPOS_BLOCO[b.tipo] || TIPOS_BLOCO.outro;
+      return `<div style="padding:3px 0;">${t.i} ${esc(b.descricao || t.n)} <span class="muted">· ${Number(b.minutos)} min</span></div>`;
+    }).join('')}</div>` : '';
     return `<div style="margin:14px 0; padding:12px 14px; background:#fff8e1; border-left:5px solid #ffc107; border-radius:6px; text-align:left;">
       ${tema ? `<div>📌 <b>Hoje na aula:</b> ${esc(tema)}</div>` : ''}
+      ${objetivo ? `<div style="margin-top:6px;">🎯 ${esc(objetivo)}</div>` : ''}
+      ${programacao}
       ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block; margin-top:${tema ? 8 : 0}px; padding:8px 14px; background:#667eea; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; font-size:14px;">${rotuloLink(link)}</a>` : ''}
     </div>`;
   }
@@ -1278,7 +1287,7 @@
 
     $('aluno-titulo').textContent = '🥋 ' + s.turmaNome;
     $('aluno-sub').textContent = `${s.horario} · Escolha seu nome para marcar presença`;
-    $('aluno-destaque').innerHTML = htmlDestaque(s);
+    $('aluno-destaque').innerHTML = htmlDestaque(s, true);
     const lista = $('aluno-lista');
     lista.innerHTML = (s.roster || []).map(a =>
       `<button class="aluno-btn" data-aluno="${a.id}">${esc(a.nome)}</button>`
