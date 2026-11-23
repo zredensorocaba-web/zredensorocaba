@@ -109,6 +109,10 @@
         <p id="recepcao-data" class="muted" style="text-transform:capitalize;"></p>
       </div>
       <div class="card">
+        <h2>🎂 Aniversariantes</h2>
+        <div id="aniv-recepcao"></div>
+      </div>
+      <div class="card">
         <h2>Aulas de hoje</h2>
         <div id="recepcao-aulas"></div>
       </div>
@@ -120,6 +124,10 @@
         <div class="stat"><small>Alunos ativos</small><div id="st-ativos">0</div></div>
         <div class="stat"><small>Turmas</small><div id="st-turmas">0</div></div>
         <div class="stat"><small>Previsto por mês</small><div id="st-previsto">R$ 0</div></div>
+      </div>
+      <div class="card">
+        <h2>🎂 Aniversariantes</h2>
+        <div id="aniv-inicio"></div>
       </div>
       <div class="card">
         <h2>Aulas de hoje</h2>
@@ -383,7 +391,8 @@
         </select></div>
     </div>
     <div class="row">
-      <div><label>Data de início</label><input type="date" id="a-inicio"></div>
+      <div><label>Data de nascimento</label><input type="date" id="a-nasc"></div>
+      <div><label>Data de início na academia</label><input type="date" id="a-inicio"></div>
     </div>
     <div class="row">
       <div><label>Telefone / WhatsApp</label><input type="tel" id="a-tel"></div>
@@ -615,6 +624,7 @@
   // ---------- Início ----------
   function renderInicio() {
     const ativos = alunos.filter(a => a.status === 'ativo');
+    renderAniversarios();
     $('st-ativos').textContent = ativos.length;
     $('st-turmas').textContent = turmas.length;
     $('st-previsto').textContent = reais(ativos.reduce((s, a) => s + valorDoAluno(a), 0));
@@ -642,7 +652,7 @@
       && (atual === 'todos' || (a.status || 'ativo') === atual));
     $('lista-alunos').innerHTML = lista.length ? lista.map(a => `
       <tr>
-        <td>${avatar(a)}<strong>${esc(a.nome)}</strong></td>
+        <td>${avatar(a)}<strong>${esc(a.nome)}</strong>${idadeDe(a.dataNascimento) != null ? ` <span class="muted">(${idadeDe(a.dataNascimento)} anos)</span>` : ''}</td>
         <td>${capitalizar(a.faixa)}</td>
         <td>${NOMES_PLANO[a.plano || '2x']}<br><span class="muted">${reais(valorDoAluno(a))}</span></td>
         <td><span class="badge b-${a.status || 'ativo'}">${capitalizar(a.status || 'ativo')}</span>${
@@ -681,6 +691,7 @@
     $('a-faixa').value = a?.faixa || 'branca';
     $('a-plano').value = a?.plano || '2x';
     $('a-inicio').value = a?.dataInicio || hoje();
+    $('a-nasc').value = a?.dataNascimento || '';
     $('a-tel').value = a?.telefone || '';
     $('a-email').value = a?.email || '';
     $('a-valor-esp').value = a?.valorEspecifico ?? '';
@@ -725,6 +736,7 @@
       faixa: $('a-faixa').value,
       plano: $('a-plano').value,
       dataInicio: $('a-inicio').value,
+      dataNascimento: $('a-nasc').value || '',
       telefone: $('a-tel').value.trim(),
       email: $('a-email').value.trim(),
       turmas: [...document.querySelectorAll('.a-turma:checked')].map(c => c.value),
@@ -1437,6 +1449,99 @@
       catch (err) { alert('Não foi possível atualizar: ' + err.message); }
     }
   });
+
+  // ---------- Aniversariantes (idade e tempo de academia) ----------
+  const JANELA_ANIV = 30; // dias à frente
+  const TOLERANCIA_ANIV = 2; // ainda mostra quem fez aniversário há até 2 dias
+
+  function idadeDe(iso) {
+    if (!iso) return null;
+    const [y, m, d] = iso.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    const t = new Date();
+    let idade = t.getFullYear() - y;
+    if (t.getMonth() + 1 < m || (t.getMonth() + 1 === m && t.getDate() < d)) idade--;
+    return idade >= 0 ? idade : null;
+  }
+
+  // Próxima ocorrência (ou ocorrência recente) de uma data; "anos" = quantos anos completa
+  function proximoAniv(iso) {
+    if (!iso) return null;
+    const [y, m, d] = iso.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    const t = new Date();
+    const h = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+    for (const ano of [h.getFullYear(), h.getFullYear() + 1]) {
+      const c = new Date(ano, m - 1, d);
+      const dias = Math.round((c - h) / 86400000);
+      if (dias >= -TOLERANCIA_ANIV) {
+        return {
+          dias,
+          anos: ano - y,
+          dia: `${String(c.getDate()).padStart(2, '0')}/${String(c.getMonth() + 1).padStart(2, '0')}`
+        };
+      }
+    }
+    return null;
+  }
+
+  function quandoAniv(dias, dia) {
+    if (dias === 0) return '<b style="color:#28a745;">hoje!</b>';
+    if (dias === 1) return `amanhã (${dia})`;
+    if (dias === -1) return `ontem (${dia})`;
+    if (dias < 0) return `há ${-dias} dias (${dia})`;
+    return `em ${dias} dias (${dia})`;
+  }
+
+  function renderAniversarios() {
+    const itens = [];
+    alunos.filter(a => ['ativo', 'trancado'].includes(a.status || 'ativo')).forEach(a => {
+      const n = proximoAniv(a.dataNascimento);
+      if (n && n.dias <= JANELA_ANIV && n.anos > 0) itens.push({ a, tipo: 'idade', ...n });
+      const ac = proximoAniv(a.dataInicio);
+      if (ac && ac.dias <= JANELA_ANIV && ac.anos >= 1) itens.push({ a, tipo: 'academia', ...ac });
+    });
+    itens.sort((x, y) => x.dias - y.dias || (x.a.nome || '').localeCompare(y.a.nome || ''));
+
+    const html = itens.length ? itens.map(({ a, tipo, dias, anos, dia }) => {
+      const texto = tipo === 'idade'
+        ? `🎂 Faz <b>${anos} anos</b>`
+        : `🥋 Completa <b>${anos} ${anos === 1 ? 'ano' : 'anos'} de academia</b>`;
+      const cor = dias === 0 ? '#28a745' : dias < 0 ? '#adb5bd' : '#ffc107';
+      const botao = (dias <= 0 && a.telefone)
+        ? `<button class="sm" data-parabens="${a.id}" data-tipo="${tipo}">🎉 Parabenizar</button>` : '';
+      return `
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px; margin-bottom:8px; background:${dias === 0 ? '#eefaf0' : '#f9f9f9'}; border-left:4px solid ${cor}; border-radius:6px;">
+          ${avatar(a)}
+          <div style="flex:1; min-width:160px;">
+            <strong>${esc(a.nome)}</strong>${a.status === 'trancado' ? ' <span class="badge b-trancado">trancado</span>' : ''}<br>
+            <small>${texto} · ${quandoAniv(dias, dia)}</small>
+          </div>
+          ${botao}
+        </div>`;
+    }).join('') : `<p class="muted">Nenhum aniversário nos próximos ${JANELA_ANIV} dias. Preencha a data de nascimento no cadastro dos alunos.</p>`;
+
+    ['aniv-recepcao', 'aniv-inicio'].forEach(id => { if ($(id)) $(id).innerHTML = html; });
+  }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-parabens]');
+    if (!b) return;
+    const a = alunos.find(x => x.id === b.dataset.parabens);
+    if (!a) return;
+    let tel = String(a.telefone || '').replace(/\D/g, '');
+    if (tel.length < 10) return alert(`${a.nome} não tem telefone cadastrado.`);
+    if (tel.length <= 11) tel = '55' + tel;
+    const nome = (a.nome || '').split(' ')[0];
+    const info = proximoAniv(b.dataset.tipo === 'idade' ? a.dataNascimento : a.dataInicio);
+    const texto = b.dataset.tipo === 'idade'
+      ? `Parabéns, ${nome}! 🎉 Muita saúde, paz e bons treinos neste novo ano de vida. Um abraço de toda a equipe da ${config.nome}! 🥋`
+      : `Parabéns, ${nome}! 🥋 Você completa ${info ? info.anos : ''} ${info && info.anos === 1 ? 'ano' : 'anos'} de academia com a gente. Obrigado pela parceria e pela dedicação! Oss!`;
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(texto)}`, '_blank');
+  });
+
+  // Se o sistema ficar aberto de um dia para o outro, atualiza a lista
+  setInterval(renderAniversarios, 3600000);
 
   // ---------- Aba Faixas ----------
   const CORES_FAIXA = { branca: '#e9ecef', azul: '#1e63d6', roxa: '#7b2cbf', marrom: '#7b4a2b', preta: '#222' };
