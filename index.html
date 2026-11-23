@@ -333,6 +333,13 @@
         <textarea id="cfg-msg-modelo" rows="4" style="width:100%; padding:9px; border:1px solid #ccc; border-radius:6px; font:inherit;"></textarea>
         <p class="muted">Use: {nome} {academia} {descricao} {valor} {situacao} {vencimento} {pix}</p>
 
+        <h2 style="margin-top:22px;">Mensagens de aniversário (WhatsApp)</h2>
+        <label>Aniversário de idade</label>
+        <textarea id="cfg-msg-aniv-idade" rows="3" style="width:100%; padding:9px; border:1px solid #ccc; border-radius:6px; font:inherit;"></textarea>
+        <label>Aniversário de academia</label>
+        <textarea id="cfg-msg-aniv-academia" rows="3" style="width:100%; padding:9px; border:1px solid #ccc; border-radius:6px; font:inherit;"></textarea>
+        <p class="muted">Use: {nome} {academia} {anos}</p>
+
         <h2 style="margin-top:22px;">Identidade visual</h2>
         <div class="row">
           <div><label>Logo (aparece no topo do sistema)</label><input type="file" id="cfg-logo" accept="image/*"><img id="cfg-logo-preview" class="hidden" alt="" style="max-height:70px; margin-top:8px;"></div>
@@ -503,6 +510,8 @@
   const MAPA_DIA = ['dom','seg','ter','qua','qui','sex','sab'];
   const PLANOS_PADRAO = { '1x': 100, '2x': 130, '3x': 160, livre: 200 };
   const MSG_PADRAO = 'Olá {nome}! Lembrete da {academia}: sua cobrança ({descricao}) de {valor} {situacao} {vencimento}. {pix}Qualquer dúvida, é só chamar! 🥋';
+  const MSG_ANIV_IDADE = 'Parabéns, {nome}! 🎉 Muita saúde, paz e bons treinos neste novo ano de vida. Um abraço de toda a equipe da {academia}! 🥋';
+  const MSG_ANIV_ACADEMIA = 'Parabéns, {nome}! 🥋 Você completa {anos} de academia com a gente. Obrigado pela parceria e pela dedicação! Oss!';
   const NOMES_PLANO = { '1x': '1x por semana', '2x': '2x por semana', '3x': '3x por semana', livre: 'Livre' };
 
   let alunos = [];
@@ -864,6 +873,8 @@
     }
     $('cfg-pix').value = config.chavePix || '';
     $('cfg-msg-modelo').value = config.msgCobranca || MSG_PADRAO;
+    $('cfg-msg-aniv-idade').value = config.msgAnivIdade || MSG_ANIV_IDADE;
+    $('cfg-msg-aniv-academia').value = config.msgAnivAcademia || MSG_ANIV_ACADEMIA;
     ['1x','2x','3x','livre'].forEach(p => { $('cfg-p-' + p).value = config.planos[p]; });
     ['branca','azul','roxa','marrom','preta'].forEach(f => { $('req-' + f).value = config.requisitos[f]; });
   }
@@ -885,6 +896,8 @@
         requisitos,
         chavePix: $('cfg-pix').value.trim(),
         msgCobranca: $('cfg-msg-modelo').value.trim() || MSG_PADRAO,
+        msgAnivIdade: $('cfg-msg-aniv-idade').value.trim() || MSG_ANIV_IDADE,
+        msgAnivAcademia: $('cfg-msg-aniv-academia').value.trim() || MSG_ANIV_ACADEMIA,
         cor1: $('cfg-cor1').value,
         cor2: $('cfg-cor2').value,
         logo: logoTemp ?? config.logo ?? '',
@@ -1534,9 +1547,16 @@
     if (tel.length <= 11) tel = '55' + tel;
     const nome = (a.nome || '').split(' ')[0];
     const info = proximoAniv(b.dataset.tipo === 'idade' ? a.dataNascimento : a.dataInicio);
-    const texto = b.dataset.tipo === 'idade'
-      ? `Parabéns, ${nome}! 🎉 Muita saúde, paz e bons treinos neste novo ano de vida. Um abraço de toda a equipe da ${config.nome}! 🥋`
-      : `Parabéns, ${nome}! 🥋 Você completa ${info ? info.anos : ''} ${info && info.anos === 1 ? 'ano' : 'anos'} de academia com a gente. Obrigado pela parceria e pela dedicação! Oss!`;
+    const anos = info ? info.anos : '';
+    const modelo = b.dataset.tipo === 'idade'
+      ? (config.msgAnivIdade || MSG_ANIV_IDADE)
+      : (config.msgAnivAcademia || MSG_ANIV_ACADEMIA);
+    const valores = {
+      nome,
+      academia: config.nome,
+      anos: b.dataset.tipo === 'idade' ? `${anos} anos` : `${anos} ${anos === 1 ? 'ano' : 'anos'}`
+    };
+    const texto = modelo.replace(/\{(\w+)\}/g, (m, k) => k in valores ? valores[k] : m);
     window.open(`https://wa.me/${tel}?text=${encodeURIComponent(texto)}`, '_blank');
   });
 
