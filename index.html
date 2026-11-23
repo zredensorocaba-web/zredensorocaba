@@ -46,6 +46,22 @@
   .checks input { width: auto; margin-right: 6px; }
   .hidden { display: none !important; }
   .muted { color: #666; font-size: 13px; }
+  .pl-visoes { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pl-grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; min-width: 560px; }
+  .pl-cab { text-align: center; font-size: 12px; font-weight: 700; color: #666; padding: 4px 0; }
+  .pl-cel { min-height: 84px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 4px; cursor: pointer; overflow: hidden; }
+  .pl-cel:hover { border-color: #667eea; }
+  .pl-cel.fora { opacity: .35; cursor: default; background: #f4f5f9; }
+  .pl-cel.hoje { border: 2px solid #667eea; background: #eef0ff; }
+  .pl-n { font-size: 12px; font-weight: 700; color: #444; margin-bottom: 3px; }
+  .pl-chip { font-size: 11px; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pl-chip.plan { background: #dfe4ff; color: #2d3a9c; }
+  .pl-chip.dada { background: #d4edda; color: #155724; }
+  .pl-chip.sem { background: #fff3cd; color: #856404; }
+  .pl-chip.passou { background: #eee; color: #888; }
+  .pl-aula { border: 1px solid #eee; border-left: 5px solid #667eea; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff; }
+  .pl-bloco { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+  textarea.pl-ta { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 6px; font: inherit; font-size: 14px; box-sizing: border-box; }
   .badge { display: inline-block; padding: 3px 9px; border-radius: 12px; font-size: 12px; font-weight: 600; }
   .b-ativo { background: #d4edda; color: #155724; }
   .b-inativo { background: #e2e3e5; color: #383d41; }
@@ -96,6 +112,7 @@
       <button class="tab" data-tab="alunos">👥 Alunos</button>
       <button class="tab" data-tab="faixas">🥋 Faixas</button>
       <button class="tab" data-tab="presenca">✓ Presença</button>
+      <button class="tab" data-tab="planejamento">📋 Planejamento</button>
       <button class="tab" data-tab="financeiro">💰 Financeiro</button>
       <button class="tab" data-tab="relatorios">📈 Relatórios</button>
       <button class="tab" data-tab="turmas">⏰ Turmas</button>
@@ -200,6 +217,7 @@
           <h2>Iniciar aula</h2>
           <label>Turma</label>
           <select id="pr-turma"></select>
+          <div id="pr-plano-aviso"></div>
           <div style="margin-top:12px;"><button type="button" class="sec sm" id="btn-add-destaque">➕ Adicionar destaque da aula (foco e link)</button></div>
           <div id="pr-destaque-campos" class="hidden">
           <label>Foco da aula (opcional)</label>
@@ -218,6 +236,7 @@
             <div><button class="sm" id="btn-editar-destaque">✏️ Editar destaque</button><button class="del sm" id="btn-encerrar-aula">⏹️ Encerrar aula</button></div>
           </div>
           <div id="pr-destaque"></div>
+          <div id="pr-roteiro"></div>
           <div class="row" style="margin-top:18px; grid-template-columns: minmax(220px, 280px) 1fr; align-items:start;">
             <div class="qr-box">
               <div id="pr-qr"></div>
@@ -230,6 +249,28 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- PLANEJAMENTO -->
+    <div id="tab-planejamento" class="hidden">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div class="pl-visoes">
+            <button data-pl="visao" data-v="mes">📅 Mês</button>
+            <button class="sec" data-pl="visao" data-v="semana">🗓️ Semana</button>
+            <button class="sec" data-pl="visao" data-v="dia">📋 Dia</button>
+            <button class="sec" data-pl="visao" data-v="modelos">📚 Modelos</button>
+          </div>
+          <div id="pl-nav" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button class="sec sm" data-pl="nav" data-n="-1">◀</button>
+            <strong id="pl-titulo" style="min-width:150px; text-align:center;"></strong>
+            <button class="sec sm" data-pl="nav" data-n="1">▶</button>
+            <button class="sm" data-pl="hoje">Hoje</button>
+            <span id="pl-toast" class="muted"></span>
+          </div>
+        </div>
+      </div>
+      <div id="pl-conteudo"></div>
     </div>
 
     <!-- FINANCEIRO -->
@@ -436,6 +477,53 @@
   </form>
 </div>
 
+<!-- MODAL PLANO DE AULA -->
+<div id="modal-plano" class="modal">
+  <form class="modal-box" id="form-plano" style="max-width:720px;">
+    <h3 id="pl-ed-titulo">Plano de aula</h3>
+    <div id="pl-ed-modelo-box" class="hidden">
+      <label>Nome do modelo</label>
+      <input type="text" id="pl-m-nome" placeholder="Ex: Aula de raspagens (60 min)">
+    </div>
+    <div id="pl-ed-aula-box">
+      <div class="row">
+        <div><label>Data</label><input type="date" id="pl-data"></div>
+        <div><label>Turma</label><select id="pl-turma"></select></div>
+      </div>
+      <p id="pl-aviso-dia" class="muted" style="margin:6px 0 0;"></p>
+      <label>Foco / tema da aula</label>
+      <input type="text" id="pl-tema" placeholder="Ex: Passagem de guarda aberta">
+      <label>Objetivo (opcional)</label>
+      <input type="text" id="pl-objetivo" placeholder="Ex: o aluno sair sabendo manter pressão na passagem">
+      <label>Link (opcional: YouTube, Instagram...)</label>
+      <input type="text" id="pl-link" placeholder="https://...">
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <div><label>Duração total da aula (min)</label><input type="number" id="pl-duracao" min="10" max="240" value="60"></div>
+      <div><label>Aplicar modelo de divisão</label><select id="pl-modelo-sel"></select></div>
+    </div>
+    <h4 style="margin:16px 0 8px;">Divisão do tempo da aula</h4>
+    <div id="pl-timeline" style="margin-bottom:10px;"></div>
+    <div id="pl-blocos"></div>
+    <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <button type="button" class="sec sm" id="pl-add-bloco">➕ Bloco</button>
+      <button type="button" class="sec sm" id="pl-ajustar">⚖️ Ajustar ao total</button>
+      <span id="pl-soma"></span>
+    </div>
+    <div id="pl-obs-box">
+      <label>Observações / como foi a aula (opcional)</label>
+      <textarea class="pl-ta" id="pl-obs" rows="2" placeholder="Ex: turma gostou do drill, repetir semana que vem"></textarea>
+      <label style="font-weight:normal; display:flex; align-items:center; gap:8px;"><input type="checkbox" id="pl-dada" style="width:auto;"> Aula já foi dada</label>
+    </div>
+    <div id="pl-ed-msg"></div>
+    <div class="acoes" style="flex-wrap:wrap; position:sticky; bottom:-22px; background:#fff; padding:12px 0 2px; border-top:1px solid #eee;">
+      <button type="button" class="sec" id="pl-salvar-modelo">💾 Salvar como modelo</button>
+      <button type="button" class="sec" data-fechar="modal-plano">Cancelar</button>
+      <button type="submit">Salvar</button>
+    </div>
+  </form>
+</div>
+
 <!-- MODAL SITUAÇÃO DA MATRÍCULA -->
 <div id="modal-status" class="modal">
   <form class="modal-box" id="form-status">
@@ -613,6 +701,7 @@
     }));
     iniciarPresenca();
     iniciarFinanceiro();
+    iniciarPlanejamento();
     unsubs.push(onSnapshot(doc(db, 'config', 'geral'), snap => {
       if (snap.exists()) {
         const d = snap.data();
@@ -639,9 +728,10 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('ativa'));
       btn.classList.add('ativa');
-      ['recepcao','dashboard','alunos','faixas','presenca','financeiro','relatorios','turmas','config'].forEach(t => {
+      ['recepcao','dashboard','alunos','faixas','presenca','planejamento','financeiro','relatorios','turmas','config'].forEach(t => {
         $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
       });
+      if (btn.dataset.tab === 'planejamento') renderPlanejamento(true);
     });
   });
 
@@ -984,12 +1074,14 @@
         const sugerida = turmas.find(t => (t.dias || []).includes(diaCodigo));
         if (sugerida) $('pr-turma').value = sugerida.id;
       }
+      atualizarAvisoPlano();
       return;
     }
 
     $('pr-nome').textContent = sessaoAtiva.turmaNome;
     $('pr-info').textContent = `${sessaoAtiva.horario} · aula iniciada hoje`;
     $('pr-destaque').innerHTML = htmlDestaque(sessaoAtiva);
+    renderRoteiro();
     // Botão de editar só aparece se o recurso estiver ligado ou a aula já tiver destaque
     $('btn-editar-destaque').classList.toggle('hidden', !(config.destaqueAula || sessaoAtiva.tema || sessaoAtiva.link));
 
@@ -1034,6 +1126,7 @@
     const linkDigitado = $('pr-link').value.trim();
     const linkAula = linkSeguro(linkDigitado);
     if (linkDigitado && !linkAula) return alert('O link informado não é válido. Confira o endereço (ex: https://youtube.com/...).');
+    const planoHoje = planoDe(hoje(), turmaId);
     try {
       await addDoc(collection(db, 'sessoes'), {
         turmaId,
@@ -1044,10 +1137,16 @@
         tokenAtual: gerarToken(),
         tokenAnterior: '',
         roster,
-        tema: $('pr-tema').value.trim(),
-        link: linkAula,
+        tema: $('pr-tema').value.trim() || (planoHoje ? planoHoje.tema || '' : ''),
+        link: linkAula || (planoHoje ? linkSeguro(planoHoje.link) : ''),
+        planoId: planoHoje ? planoHoje.id : '',
+        objetivo: planoHoje ? planoHoje.objetivo || '' : '',
+        blocos: planoHoje ? planoHoje.blocos : [],
         iniciadaEm: new Date().toISOString()
       });
+      if (planoHoje && planoHoje.status !== 'dada') {
+        setDoc(doc(db, 'planos_aula', planoHoje.id), { status: 'dada' }, { merge: true }).catch(() => {});
+      }
       $('pr-tema').value = '';
       $('pr-link').value = '';
       destaqueAberto = false;
@@ -2024,7 +2123,7 @@
       return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:14px; margin-bottom:10px; background:#f9f9f9; border-left:5px solid ${config.cor1 || '#667eea'}; border-radius:6px;">
           <div><strong style="font-size:18px;">${esc(t.horario)} · ${esc(t.nome)}</strong><br>
-            <span class="muted">Professor: ${esc(t.instrutor || '-')}</span>${emAndamento && sessaoAtiva.tema ? `<br><span>📌 ${esc(sessaoAtiva.tema)}</span>` : ''}</div>
+            <span class="muted">Professor: ${esc(t.instrutor || '-')}</span>${(() => { const pl = planoDe(hoje(), t.id); const tx = emAndamento ? sessaoAtiva.tema : (pl && pl.tema); return tx ? `<br><span>📌 ${esc(tx)}</span>` : ''; })()}</div>
           <div>${emAndamento
             ? '<span class="badge b-ativo">Em andamento</span>'
             : `<button data-chamada="${t.id}">✓ Fazer chamada</button>`}</div>
@@ -2038,6 +2137,748 @@
     irPara('presenca');
     $('pr-turma').value = b.dataset.chamada;
   });
+
+  // ---------- Planejamento de aulas ----------
+  const TIPOS_BLOCO = {
+    aquecimento: { n: 'Aquecimento', i: '🔥', c: '#ff7043' },
+    alongamento: { n: 'Alongamento / mobilidade', i: '🧘', c: '#26a69a' },
+    tecnica: { n: 'Técnica / posição', i: '🥋', c: '#667eea' },
+    drill: { n: 'Drill (repetição)', i: '🔁', c: '#7e57c2' },
+    posicional: { n: 'Luta de posição', i: '🎯', c: '#ffa726' },
+    sparring: { n: 'Luta livre (sparring)', i: '🥊', c: '#ef5350' },
+    defesa: { n: 'Defesa pessoal', i: '🛡️', c: '#8d6e63' },
+    volta: { n: 'Volta à calma', i: '😌', c: '#42a5f5' },
+    outro: { n: 'Outro', i: '📝', c: '#90a4ae' }
+  };
+
+  // Modelos prontos: [tipo, descrição, minutos]
+  const MODELOS_PADRAO = [
+    { id: 'pad-completa', nome: 'Aula completa', duracao: 60, blocos: [
+      ['aquecimento', 'Aquecimento geral e movimentações específicas', 10],
+      ['alongamento', 'Alongamento e mobilidade', 5],
+      ['tecnica', 'Técnica do dia', 20],
+      ['drill', 'Repetição da técnica (drill)', 10],
+      ['sparring', 'Luta livre', 12],
+      ['volta', 'Volta à calma e avisos', 3]] },
+    { id: 'pad-tecnica', nome: 'Foco em técnica', duracao: 60, blocos: [
+      ['aquecimento', 'Aquecimento', 10],
+      ['tecnica', 'Técnica 1', 15],
+      ['tecnica', 'Técnica 2 (encadeamento com a primeira)', 15],
+      ['drill', 'Drill das duas técnicas', 10],
+      ['posicional', 'Luta de posição com a técnica do dia', 7],
+      ['volta', 'Volta à calma', 3]] },
+    { id: 'pad-competicao', nome: 'Preparação para competição', duracao: 60, blocos: [
+      ['aquecimento', 'Aquecimento intenso', 10],
+      ['tecnica', 'Ajuste técnico rápido', 10],
+      ['posicional', 'Rounds de posição partindo de situações de luta', 15],
+      ['sparring', 'Rounds de luta com cronômetro', 20],
+      ['volta', 'Volta à calma e alongamento', 5]] },
+    { id: 'pad-iniciantes', nome: 'Iniciantes / fundamentos', duracao: 60, blocos: [
+      ['aquecimento', 'Aquecimento com movimentações básicas (rolamento, fuga de quadril)', 12],
+      ['tecnica', 'Fundamento do dia', 20],
+      ['drill', 'Repetição guiada', 10],
+      ['posicional', 'Luta de posição leve', 10],
+      ['alongamento', 'Alongamento final', 5],
+      ['outro', 'Dúvidas e avisos', 3]] },
+    { id: 'pad-kids', nome: 'Aula kids', duracao: 45, blocos: [
+      ['aquecimento', 'Aquecimento lúdico', 10],
+      ['tecnica', 'Técnica do dia', 15],
+      ['outro', 'Jogos e brincadeiras', 10],
+      ['posicional', 'Luta controlada', 7],
+      ['volta', 'Roda final: respeito e valores', 3]] },
+    { id: 'pad-curta', nome: 'Aula curta (45 min)', duracao: 45, blocos: [
+      ['aquecimento', 'Aquecimento', 8],
+      ['tecnica', 'Técnica do dia', 17],
+      ['drill', 'Drill', 8],
+      ['sparring', 'Luta livre', 10],
+      ['volta', 'Volta à calma', 2]] }
+  ];
+
+  const NOMES_DIA_LONGO = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+  const NOMES_MES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  let planosAula = [], planosMes = [], modelosAula = [];
+  let plVisao = 'mes', plRef = hoje(), plErro = '';
+  let edId = null, edModo = 'plano', edBlocos = [];
+
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const parseISO = iso => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
+  const isoDe = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const addDias = (iso, n) => { const d = parseISO(iso); d.setDate(d.getDate() + n); return isoDe(d); };
+  const segundaDe = iso => { const d = parseISO(iso); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoDe(d); };
+  const dataCurta = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+  const somaMin = arr => arr.reduce((s, b) => s + (Number(b.minutos) || 0), 0);
+  const normBlocos = arr => (arr || []).map(b => Array.isArray(b)
+    ? { id: uid(), tipo: b[0], descricao: b[1], minutos: b[2] }
+    : { id: uid(), tipo: TIPOS_BLOCO[b.tipo] ? b.tipo : 'outro', descricao: b.descricao || '', minutos: Number(b.minutos) || 0 });
+  const todosModelos = () => [...MODELOS_PADRAO.map(m => ({ ...m, padrao: true })), ...modelosAula.map(m => ({ ...m, padrao: false }))];
+
+  const turmasDoDia = iso => turmas
+    .filter(t => (t.dias || []).includes(MAPA_DIA[parseISO(iso).getDay()]))
+    .sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
+  const planoDe = (iso, turmaId) => planosAula.find(p => p.data === iso && p.turmaId === turmaId);
+  const focoDaSemana = seg => { for (const m of planosMes) if (m.semanas && m.semanas[seg]) return m.semanas[seg]; return ''; };
+
+  // Aulas programadas do dia + planos de aulas extras (fora da grade de turmas)
+  function itensDoDia(iso) {
+    const itens = turmasDoDia(iso).map(t => ({ turma: t, plano: planoDe(iso, t.id), extra: false }));
+    const ids = new Set(itens.map(i => i.turma.id));
+    planosAula.filter(p => p.data === iso && !ids.has(p.turmaId)).forEach(p => itens.push({
+      turma: turmas.find(t => t.id === p.turmaId) || { id: p.turmaId, nome: p.turmaNome || 'Turma removida', horario: p.horario || '' },
+      plano: p, extra: true
+    }));
+    return itens.sort((a, b) => (a.turma.horario || '').localeCompare(b.turma.horario || ''));
+  }
+
+  function iniciarPlanejamento() {
+    const falha = err => {
+      plErro = err.message || String(err);
+      renderPlanejamento(true);
+    };
+    unsubs.push(onSnapshot(collection(db, 'planos_aula'), snap => {
+      plErro = '';
+      planosAula = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      planosAula.forEach(p => { if (!Array.isArray(p.blocos)) p.blocos = []; });
+      renderPlanejamento();
+      renderRecepcao();
+      atualizarAvisoPlano();
+    }, falha));
+    unsubs.push(onSnapshot(collection(db, 'planejamento_mes'), snap => {
+      planosMes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderPlanejamento();
+    }, falha));
+    unsubs.push(onSnapshot(collection(db, 'modelos_aula'), snap => {
+      modelosAula = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      modelosAula.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      renderPlanejamento();
+    }, falha));
+  }
+
+  // ----- Peças visuais -----
+  function barraBlocos(blocos, alt = 14) {
+    const tot = somaMin(blocos);
+    if (!tot) return '';
+    return `<div style="display:flex; height:${alt}px; border-radius:7px; overflow:hidden; background:#eee;">${blocos.map(b => {
+      const t = TIPOS_BLOCO[b.tipo] || TIPOS_BLOCO.outro;
+      return `<div title="${esc(t.n)}${b.descricao ? ': ' + esc(b.descricao) : ''} · ${b.minutos} min" style="flex:${b.minutos} 1 0; background:${t.c}; min-width:2px; border-right:1px solid #fff;"></div>`;
+    }).join('')}</div>`;
+  }
+
+  function listaBlocos(blocos) {
+    let ini = 0;
+    return blocos.map(b => {
+      const t = TIPOS_BLOCO[b.tipo] || TIPOS_BLOCO.outro;
+      const m = Number(b.minutos) || 0;
+      const linha = `<div style="display:flex; gap:10px; align-items:flex-start; padding:7px 0; border-bottom:1px solid #f0f0f0;">
+        <span style="min-width:70px; font-size:12px; color:#666;">${ini}–${ini + m} min</span>
+        <span style="width:10px; height:10px; border-radius:50%; background:${t.c}; margin-top:4px; flex:none;"></span>
+        <div style="flex:1;"><b>${t.i} ${esc(t.n)}</b> <span class="muted">· ${m} min</span>${b.descricao ? `<br><span>${esc(b.descricao)}</span>` : ''}</div>
+      </div>`;
+      ini += m;
+      return linha;
+    }).join('');
+  }
+
+  const botaoLink = u => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" style="display:inline-block; margin-top:6px; padding:7px 12px; background:#667eea; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; font-size:13px;">${rotuloLink(u)}</a>`;
+
+  function chipAula(it, d) {
+    const p = it.plano;
+    let cls = 'sem';
+    if (p) cls = p.status === 'dada' ? 'dada' : 'plan';
+    else if (d < hoje()) cls = 'passou';
+    const marca = p ? (p.status === 'dada' ? '✔' : '📋') : '＋';
+    return `<div class="pl-chip ${cls}" title="${esc(it.turma.nome)}${p && p.tema ? ' — ' + esc(p.tema) : ''}">${esc(it.turma.horario || '')} ${marca}</div>`;
+  }
+
+  // ----- Visão mensal -----
+  function htmlPlMes() {
+    const ref = parseISO(plRef);
+    const ano = ref.getFullYear(), mes = ref.getMonth();
+    const idMes = `${ano}-${String(mes + 1).padStart(2, '0')}`;
+    const pm = planosMes.find(x => x.id === idMes) || {};
+    const primeiro = isoDe(new Date(ano, mes, 1));
+    const ultimo = isoDe(new Date(ano, mes + 1, 0));
+    const semanas = [];
+    for (let s = segundaDe(primeiro); s <= ultimo; s = addDias(s, 7)) semanas.push(s);
+
+    let previstas = 0, cobertas = 0, faltam = 0;
+    for (let d = primeiro; d <= ultimo; d = addDias(d, 1)) {
+      turmasDoDia(d).forEach(t => {
+        previstas++;
+        if (planoDe(d, t.id)) cobertas++; else if (d >= hoje()) faltam++;
+      });
+    }
+    const dadas = planosAula.filter(p => p.data >= primeiro && p.data <= ultimo && p.status === 'dada').length;
+    const pct = previstas ? Math.round(cobertas * 100 / previstas) : 0;
+
+    const stats = `<div class="stats">
+      <div class="stat"><small>Aulas previstas no mês</small><div>${previstas}</div></div>
+      <div class="stat"><small>Com plano</small><div>${cobertas} <span style="font-size:14px;">(${pct}%)</span></div></div>
+      <div class="stat"><small>Aulas dadas</small><div>${dadas}</div></div>
+      <div class="stat"><small>Ainda sem plano</small><div>${faltam}</div></div>
+    </div>`;
+
+    const focos = semanas.map(s => `
+      <div><label>Semana de ${dataCurta(s)} a ${dataCurta(addDias(s, 6))}</label>
+      <input type="text" class="pl-foco" data-seg="${s}" value="${esc(focoDaSemana(s))}" placeholder="Foco da semana"></div>`).join('');
+
+    const tema = `<div class="card">
+      <h2>🎯 Planejamento de ${NOMES_MES[mes]}</h2>
+      <label>Tema do mês</label>
+      <input type="text" id="pl-mes-tema" value="${esc(pm.tema || '')}" placeholder="Ex: Guarda fechada e raspagens">
+      <label>Objetivo do mês</label>
+      <textarea class="pl-ta" id="pl-mes-obj" rows="2" placeholder="Ex: todos os alunos dominarem 3 raspagens básicas">${esc(pm.objetivo || '')}</textarea>
+      <div class="row" style="margin-top:4px;">${focos}</div>
+      <div style="margin-top:14px;"><button data-pl="salvar-mes">💾 Salvar planejamento do mês</button></div>
+    </div>`;
+
+    let celulas = '';
+    semanas.forEach(s => {
+      for (let i = 0; i < 7; i++) {
+        const d = addDias(s, i);
+        const fora = d < primeiro || d > ultimo;
+        const itens = fora ? [] : itensDoDia(d);
+        celulas += `<div class="pl-cel${fora ? ' fora' : ''}${d === hoje() ? ' hoje' : ''}" ${fora ? '' : `data-pl="dia" data-d="${d}"`}>
+          <div class="pl-n">${Number(d.slice(8))}</div>${itens.map(it => chipAula(it, d)).join('')}</div>`;
+      }
+    });
+    const grade = `<div class="card">
+      <h2>📅 Calendário de aulas</h2>
+      <div style="overflow-x:auto;"><div class="pl-grade">
+        ${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(n => `<div class="pl-cab">${n}</div>`).join('')}
+        ${celulas}
+      </div></div>
+      <p class="muted" style="margin-bottom:0;">📋 planejada · ✔ dada · ＋ sem plano. Clique em um dia para ver ou planejar as aulas.</p>
+    </div>`;
+
+    return stats + tema + grade;
+  }
+
+  // ----- Visão semanal -----
+  function htmlPlSemana() {
+    const seg = segundaDe(plRef);
+    const foco = focoDaSemana(seg);
+    const pm = planosMes.find(x => x.id === seg.slice(0, 7)) || {};
+    const copiaveis = planosAula
+      .filter(p => p.data >= addDias(seg, -7) && p.data <= addDias(seg, -1))
+      .filter(p => !planoDe(addDias(p.data, 7), p.turmaId));
+
+    const topo = `<div class="card">
+      ${pm.tema ? `<div style="margin-bottom:8px;">🎯 <b>Tema do mês:</b> ${esc(pm.tema)}</div>` : ''}
+      <label style="margin-top:0;">📌 Foco da semana</label>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <input type="text" id="pl-sem-foco" value="${esc(foco)}" placeholder="Ex: passagem de guarda aberta" style="flex:1 1 240px; width:auto;">
+        <button data-pl="salvar-semana">💾 Salvar foco</button>
+        ${copiaveis.length ? `<button class="sec" data-pl="copiar-semana">📋 Copiar ${copiaveis.length} plano(s) da semana anterior</button>` : ''}
+      </div>
+    </div>`;
+
+    const dias = [];
+    for (let i = 0; i < 7; i++) {
+      const d = addDias(seg, i);
+      const itens = itensDoDia(d);
+      if (i === 6 && !itens.length) continue;
+      const nome = NOMES_DIA_LONGO[parseISO(d).getDay()];
+      const corpo = itens.length ? itens.map(it => {
+        const p = it.plano;
+        const resumo = p
+          ? `${p.tema ? `<b>${esc(p.tema)}</b>` : '<span class="muted">Sem título</span>'}${p.blocos.length ? `<div style="margin-top:6px; max-width:420px;">${barraBlocos(p.blocos, 10)}</div><small class="muted">${somaMin(p.blocos)} min · ${p.blocos.length} blocos</small>` : ''}`
+          : '<span class="muted">Sem plano</span>';
+        const botoes = p
+          ? `<button class="sm" data-pl="editar" data-id="${p.id}">✏️ Editar</button><button class="sm sec" data-pl="dia" data-d="${d}">👁️ Ver</button>`
+          : `<button class="sm" data-pl="novo" data-d="${d}" data-turma="${it.turma.id}">➕ Planejar</button>`;
+        return `<div class="pl-aula" style="${p ? '' : 'border-left-color:#ffc107;'}">
+          <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start;">
+            <div><b>${esc(it.turma.horario || '')} · ${esc(it.turma.nome)}</b>${it.extra ? ' <span class="badge">aula extra</span>' : ''}${p && p.status === 'dada' ? ' <span class="badge b-ativo">✔ dada</span>' : ''}<br>${resumo}</div>
+            <div style="white-space:nowrap;">${botoes}</div>
+          </div></div>`;
+      }).join('') : '<p class="muted" style="margin:0;">Sem aulas programadas.</p>';
+      dias.push(`<div class="card" style="${d === hoje() ? 'border:2px solid #667eea;' : ''}">
+        <h3 style="margin:0 0 10px;">${nome} · ${dataCurta(d)} ${d === hoje() ? '<span class="badge b-ativo">hoje</span>' : ''}</h3>${corpo}
+        <button class="sm sec" data-pl="novo" data-d="${d}">➕ Plano extra neste dia</button></div>`);
+    }
+    return topo + dias.join('');
+  }
+
+  // ----- Visão diária -----
+  function cardAulaDia(it, d) {
+    const p = it.plano, t = it.turma;
+    const botoes = p ? `
+      <button class="sm" data-pl="editar" data-id="${p.id}">✏️ Editar</button>
+      <button class="sm sec" data-pl="dup" data-id="${p.id}">📄 Duplicar (+7 dias)</button>
+      <button class="sm sec" data-pl="status" data-id="${p.id}">${p.status === 'dada' ? '↩️ Reabrir' : '✔ Marcar como dada'}</button>
+      ${d === hoje() ? `<button class="sm" data-pl="chamada" data-turma="${t.id}">▶️ Ir para a chamada</button>` : ''}
+      <button class="sm del" data-pl="del" data-id="${p.id}">🗑️</button>` : '';
+    const topo = `<div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start;">
+      <h3 style="margin:0;">${esc(t.horario || '')} · ${esc(t.nome)}${it.extra ? ' <span class="badge">aula extra</span>' : ''}${p && p.status === 'dada' ? ' <span class="badge b-ativo">✔ dada</span>' : ''}</h3>
+      <div>${botoes}</div></div>`;
+    if (!p) {
+      return `<div class="card" style="border-left:5px solid #ffc107;">${topo}
+        <p class="muted">Ainda sem plano para esta aula.</p>
+        <button data-pl="novo" data-d="${d}" data-turma="${t.id}">➕ Criar plano</button></div>`;
+    }
+    const link = linkSeguro(p.link);
+    return `<div class="card" style="border-left:5px solid #667eea;">${topo}
+      ${p.tema ? `<h4 style="margin:12px 0 2px;">📌 ${esc(p.tema)}</h4>` : ''}
+      ${p.objetivo ? `<div class="muted">🎯 ${esc(p.objetivo)}</div>` : ''}
+      ${link ? botaoLink(link) : ''}
+      ${p.blocos.length ? `<div style="margin:14px 0 8px;">${barraBlocos(p.blocos, 20)}</div>
+        <div class="muted" style="margin-bottom:4px;">${somaMin(p.blocos)} min planejados${p.duracao && p.duracao !== somaMin(p.blocos) ? ` (aula de ${p.duracao} min)` : ''}</div>
+        ${listaBlocos(p.blocos)}` : '<p class="muted">Sem divisão de tempo. Edite o plano para adicionar blocos.</p>'}
+      ${p.obs ? `<div style="margin-top:12px; padding:10px; background:#f9f9f9; border-radius:6px;"><b>Observações:</b> ${esc(p.obs)}</div>` : ''}
+    </div>`;
+  }
+
+  function htmlPlDia() {
+    const d = plRef;
+    const pm = planosMes.find(x => x.id === d.slice(0, 7)) || {};
+    const foco = focoDaSemana(segundaDe(d));
+    const contexto = (pm.tema || foco) ? `<div class="card" style="background:#eef0ff;">
+      ${pm.tema ? `<div>🎯 <b>Tema do mês:</b> ${esc(pm.tema)}</div>` : ''}
+      ${foco ? `<div>📌 <b>Foco da semana:</b> ${esc(foco)}</div>` : ''}</div>` : '';
+    const itens = itensDoDia(d);
+    const cards = itens.length
+      ? itens.map(it => cardAulaDia(it, d)).join('')
+      : '<div class="card"><p class="muted">Nenhuma aula programada para este dia. Você ainda pode criar um plano para uma aula extra.</p></div>';
+    return `${contexto}<div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <button class="sm" data-pl="novo" data-d="${d}">➕ Novo plano neste dia</button>
+      <label style="margin:0; font-weight:normal;">Ir para:</label>
+      <input type="date" id="pl-ir-data" value="${d}" style="width:auto;"></div>${cards}`;
+  }
+
+  // ----- Modelos -----
+  function htmlPlModelos() {
+    const card = m => {
+      const blocos = normBlocos(m.blocos);
+      return `<div class="pl-aula">
+        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start;">
+          <div><b>${esc(m.nome)}</b> ${m.padrao ? '<span class="badge">pronto</span>' : '<span class="badge b-ativo">meu modelo</span>'}
+            <span class="muted">· ${somaMin(blocos)} min</span></div>
+          <div style="white-space:nowrap;">
+            <button class="sm" data-pl="modelo-usar" data-id="${m.id}">➕ Usar em um plano</button>
+            ${m.padrao
+              ? `<button class="sm sec" data-pl="modelo-copiar" data-id="${m.id}">📄 Copiar para meus modelos</button>`
+              : `<button class="sm sec" data-pl="modelo-editar" data-id="${m.id}">✏️ Editar</button><button class="sm del" data-pl="modelo-del" data-id="${m.id}">🗑️</button>`}
+          </div></div>
+        <div style="margin:10px 0 6px;">${barraBlocos(blocos, 12)}</div>
+        <small class="muted">${blocos.map(b => `${(TIPOS_BLOCO[b.tipo] || TIPOS_BLOCO.outro).i} ${b.minutos}min`).join(' · ')}</small>
+      </div>`;
+    };
+    return `<div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <h2 style="margin:0;">📚 Modelos de divisão da aula</h2>
+        <button data-pl="modelo-novo">➕ Novo modelo</button>
+      </div>
+      <p class="muted">Um modelo é a divisão do tempo da aula (aquecimento, técnica, luta...). Ao criar um plano, você aplica um modelo e ajusta o que precisar.</p>
+      <h4>Meus modelos</h4>
+      ${modelosAula.length ? modelosAula.map(m => card({ ...m, padrao: false })).join('') : '<p class="muted">Você ainda não criou modelos. Faça um novo ou copie um dos prontos.</p>'}
+      <h4>Modelos prontos</h4>
+      ${MODELOS_PADRAO.map(m => card({ ...m, padrao: true })).join('')}
+    </div>`;
+  }
+
+  function renderPlanejamento(forcar = false) {
+    const raiz = $('pl-conteudo');
+    if (!raiz) return;
+    const foco = document.activeElement;
+    if (!forcar && foco && raiz.contains(foco) && ['INPUT', 'TEXTAREA'].includes(foco.tagName)) return;
+    document.querySelectorAll('[data-pl="visao"]').forEach(b => b.classList.toggle('sec', b.dataset.v !== plVisao));
+    $('pl-nav').classList.toggle('hidden', plVisao === 'modelos');
+    const ref = parseISO(plRef);
+    let titulo = '';
+    if (plVisao === 'mes') titulo = `${NOMES_MES[ref.getMonth()]} de ${ref.getFullYear()}`;
+    else if (plVisao === 'semana') { const s = segundaDe(plRef); titulo = `${dataCurta(s)} a ${dataBR(addDias(s, 6))}`; }
+    else if (plVisao === 'dia') titulo = `${NOMES_DIA_LONGO[ref.getDay()]}, ${dataBR(plRef)}`;
+    $('pl-titulo').textContent = titulo;
+    const aviso = plErro ? `<div class="msg erro">Não foi possível carregar o planejamento: ${esc(plErro)}. Se você usa regras personalizadas no Firestore, libere as coleções <b>planos_aula</b>, <b>planejamento_mes</b> e <b>modelos_aula</b> para usuários logados.</div>` : '';
+    const corpo = plVisao === 'mes' ? htmlPlMes() : plVisao === 'semana' ? htmlPlSemana() : plVisao === 'dia' ? htmlPlDia() : htmlPlModelos();
+    raiz.innerHTML = aviso + corpo;
+  }
+
+  function toastPl(txt) {
+    $('pl-toast').textContent = txt;
+    setTimeout(() => { $('pl-toast').textContent = ''; }, 2200);
+  }
+
+  // ----- Editor de plano / modelo -----
+  function renderBlocosEd() {
+    $('pl-blocos').innerHTML = edBlocos.length ? edBlocos.map((b, i) => `
+      <div class="pl-bloco" data-i="${i}">
+        <select data-campo="tipo" style="flex:0 0 190px; width:190px;">${Object.entries(TIPOS_BLOCO).map(([k, t]) => `<option value="${k}" ${b.tipo === k ? 'selected' : ''}>${t.i} ${t.n}</option>`).join('')}</select>
+        <input type="text" data-campo="descricao" value="${esc(b.descricao)}" placeholder="Descrição (ex: passagem toreando)" style="flex:1 1 180px; width:auto;">
+        <input type="number" data-campo="minutos" value="${b.minutos}" min="1" max="180" style="flex:0 0 72px; width:72px;"><span class="muted">min</span>
+        <button type="button" class="sm sec" data-mv="-1" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button type="button" class="sm sec" data-mv="1" ${i === edBlocos.length - 1 ? 'disabled' : ''}>↓</button>
+        <button type="button" class="sm del" data-rm="1">✕</button>
+      </div>`).join('') : '<p class="muted">Nenhum bloco ainda. Use ➕ Bloco ou aplique um modelo.</p>';
+    atualizarResumoEd();
+  }
+
+  function atualizarResumoEd() {
+    const blocos = edBlocos.filter(b => Number(b.minutos) > 0);
+    $('pl-timeline').innerHTML = barraBlocos(blocos, 18);
+    const total = somaMin(blocos), alvo = Number($('pl-duracao').value) || 0;
+    let txt, cor;
+    if (!alvo) { txt = `${total} min no total`; cor = '#666'; }
+    else if (total === alvo) { txt = `✔ ${total} de ${alvo} min — aula completa`; cor = '#155724'; }
+    else if (total < alvo) { txt = `⚠️ ${total} de ${alvo} min — faltam ${alvo - total} min`; cor = '#856404'; }
+    else { txt = `⚠️ ${total} de ${alvo} min — passou ${total - alvo} min`; cor = '#721c24'; }
+    $('pl-soma').innerHTML = `<b style="color:${cor};">${txt}</b>`;
+  }
+
+  function avisoDiaEditor() {
+    if (edModo !== 'plano') return;
+    const data = $('pl-data').value, turmaId = $('pl-turma').value;
+    const ok = !data || !turmaId || turmasDoDia(data).some(t => t.id === turmaId);
+    $('pl-aviso-dia').textContent = ok ? '' : '⚠️ Esta turma não tem aula neste dia da semana. O plano será salvo como aula extra.';
+  }
+
+  function abrirEditor(est) {
+    edModo = est.modo || 'plano';
+    edId = est.id || null;
+    edBlocos = normBlocos(est.blocos);
+    const plano = edModo === 'plano';
+    $('pl-ed-titulo').textContent = plano ? (edId ? 'Editar plano de aula' : 'Novo plano de aula') : (edId ? 'Editar modelo' : 'Novo modelo de aula');
+    $('pl-ed-modelo-box').classList.toggle('hidden', plano);
+    $('pl-ed-aula-box').classList.toggle('hidden', !plano);
+    $('pl-obs-box').classList.toggle('hidden', !plano);
+    $('pl-salvar-modelo').classList.toggle('hidden', !plano);
+    $('pl-data').required = plano;
+    $('pl-turma').required = plano;
+    $('pl-m-nome').required = !plano;
+    $('pl-m-nome').value = est.nomeModelo || '';
+    const data = est.data || plRef || hoje();
+    $('pl-data').value = data;
+    $('pl-turma').innerHTML = turmas.length
+      ? turmas.map(t => `<option value="${t.id}">${esc(rotuloTurma(t))}</option>`).join('')
+      : '<option value="">Cadastre uma turma primeiro</option>';
+    const turmaPadrao = est.turmaId || (turmasDoDia(data)[0] || turmas[0] || {}).id;
+    if (turmaPadrao) $('pl-turma').value = turmaPadrao;
+    const foco = focoDaSemana(segundaDe(data));
+    $('pl-tema').value = est.tema || '';
+    $('pl-tema').placeholder = foco ? `Foco da semana: ${foco}` : 'Ex: Passagem de guarda aberta';
+    $('pl-objetivo').value = est.objetivo || '';
+    $('pl-link').value = est.link || '';
+    $('pl-obs').value = est.obs || '';
+    $('pl-dada').checked = est.status === 'dada';
+    $('pl-duracao').value = est.duracao || somaMin(edBlocos) || 60;
+    $('pl-modelo-sel').innerHTML = '<option value="">— escolher modelo —</option>'
+      + '<optgroup label="Modelos prontos">' + MODELOS_PADRAO.map(m => `<option value="${m.id}">${esc(m.nome)} (${m.duracao} min)</option>`).join('') + '</optgroup>'
+      + (modelosAula.length ? '<optgroup label="Meus modelos">' + modelosAula.map(m => `<option value="${m.id}">${esc(m.nome)} (${m.duracao || somaMin(m.blocos)} min)</option>`).join('') + '</optgroup>' : '');
+    msg('pl-ed-msg', '');
+    renderBlocosEd();
+    avisoDiaEditor();
+    $('modal-plano').classList.add('show');
+  }
+
+  function novoPlano(data, turmaId, modeloId) {
+    const m = (modeloId && todosModelos().find(x => x.id === modeloId)) || MODELOS_PADRAO[0];
+    abrirEditor({ modo: 'plano', data, turmaId, duracao: m.duracao || somaMin(normBlocos(m.blocos)), blocos: m.blocos });
+  }
+
+  function editarPlano(id) {
+    const p = planosAula.find(x => x.id === id);
+    if (p) abrirEditor({ modo: 'plano', id, data: p.data, turmaId: p.turmaId, tema: p.tema, objetivo: p.objetivo, link: p.link, duracao: p.duracao, blocos: p.blocos, obs: p.obs, status: p.status });
+  }
+
+  function duplicarPlano(id) {
+    const p = planosAula.find(x => x.id === id);
+    if (p) abrirEditor({ modo: 'plano', data: addDias(p.data, 7), turmaId: p.turmaId, tema: p.tema, objetivo: p.objetivo, link: p.link, duracao: p.duracao, blocos: p.blocos });
+  }
+
+  function coletarBlocos() {
+    return edBlocos
+      .map(b => ({ id: b.id, tipo: b.tipo, descricao: (b.descricao || '').trim(), minutos: Math.round(Number(b.minutos) || 0) }))
+      .filter(b => b.minutos > 0);
+  }
+
+  const aoEditarBloco = e => {
+    const linha = e.target.closest('.pl-bloco');
+    const campo = e.target.dataset.campo;
+    if (!linha || !campo) return;
+    const i = Number(linha.dataset.i);
+    if (campo === 'minutos') edBlocos[i].minutos = Number(e.target.value) || 0;
+    else edBlocos[i][campo] = e.target.value;
+    atualizarResumoEd();
+  };
+  $('pl-blocos').addEventListener('input', aoEditarBloco);
+  $('pl-blocos').addEventListener('change', aoEditarBloco);
+  $('pl-blocos').addEventListener('click', e => {
+    const linha = e.target.closest('.pl-bloco');
+    if (!linha) return;
+    const i = Number(linha.dataset.i);
+    if (e.target.dataset.rm) {
+      edBlocos.splice(i, 1);
+      renderBlocosEd();
+    } else if (e.target.dataset.mv) {
+      const j = i + Number(e.target.dataset.mv);
+      if (j < 0 || j >= edBlocos.length) return;
+      [edBlocos[i], edBlocos[j]] = [edBlocos[j], edBlocos[i]];
+      renderBlocosEd();
+    }
+  });
+
+  $('pl-add-bloco').addEventListener('click', () => {
+    edBlocos.push({ id: uid(), tipo: 'tecnica', descricao: '', minutos: 10 });
+    renderBlocosEd();
+  });
+  $('pl-duracao').addEventListener('input', atualizarResumoEd);
+  $('pl-data').addEventListener('change', avisoDiaEditor);
+  $('pl-turma').addEventListener('change', avisoDiaEditor);
+
+  $('pl-ajustar').addEventListener('click', () => {
+    const alvo = Number($('pl-duracao').value) || 0;
+    const tot = somaMin(edBlocos);
+    if (!alvo || !tot || !edBlocos.length) return;
+    const novos = edBlocos.map(b => Math.max(1, Math.round((Number(b.minutos) || 0) * alvo / tot)));
+    const dif = alvo - novos.reduce((s, n) => s + n, 0);
+    const idx = novos.indexOf(Math.max(...novos));
+    novos[idx] = Math.max(1, novos[idx] + dif);
+    edBlocos.forEach((b, i) => { b.minutos = novos[i]; });
+    renderBlocosEd();
+  });
+
+  $('pl-modelo-sel').addEventListener('change', e => {
+    const m = todosModelos().find(x => x.id === e.target.value);
+    e.target.value = '';
+    if (!m) return;
+    if (edBlocos.some(b => (b.descricao || '').trim()) && !confirm('Aplicar o modelo substitui os blocos atuais. Continuar?')) return;
+    edBlocos = normBlocos(m.blocos);
+    $('pl-duracao').value = m.duracao || somaMin(edBlocos);
+    renderBlocosEd();
+  });
+
+  $('pl-salvar-modelo').addEventListener('click', async () => {
+    const blocos = coletarBlocos();
+    if (!blocos.length) return msg('pl-ed-msg', 'Adicione blocos antes de salvar como modelo.');
+    const nome = prompt('Nome do modelo:', $('pl-tema').value.trim());
+    if (!nome || !nome.trim()) return;
+    try {
+      await setDoc(doc(collection(db, 'modelos_aula')), {
+        nome: nome.trim(),
+        duracao: Number($('pl-duracao').value) || somaMin(blocos),
+        blocos: blocos.map(({ tipo, descricao, minutos }) => ({ tipo, descricao, minutos })),
+        criadoEm: new Date().toISOString()
+      });
+      msg('pl-ed-msg', 'Modelo salvo! Ele aparece em "Aplicar modelo" e na aba Modelos.', 'ok');
+    } catch (err) {
+      msg('pl-ed-msg', 'Não foi possível salvar o modelo: ' + err.message);
+    }
+  });
+
+  $('form-plano').addEventListener('submit', async e => {
+    e.preventDefault();
+    const blocos = coletarBlocos();
+    const duracao = Number($('pl-duracao').value) || somaMin(blocos) || 60;
+    const agora = new Date().toISOString();
+    try {
+      if (edModo === 'modelo') {
+        const nome = $('pl-m-nome').value.trim();
+        if (!nome) return msg('pl-ed-msg', 'Informe o nome do modelo.');
+        if (!blocos.length) return msg('pl-ed-msg', 'Adicione ao menos um bloco ao modelo.');
+        const ref = edId ? doc(db, 'modelos_aula', edId) : doc(collection(db, 'modelos_aula'));
+        await setDoc(ref, {
+          nome, duracao,
+          blocos: blocos.map(({ tipo, descricao, minutos }) => ({ tipo, descricao, minutos })),
+          criadoEm: (modelosAula.find(m => m.id === edId) || {}).criadoEm || agora
+        });
+        $('modal-plano').classList.remove('show');
+        return;
+      }
+      const data = $('pl-data').value;
+      const t = turmas.find(x => x.id === $('pl-turma').value);
+      if (!data) return msg('pl-ed-msg', 'Informe a data da aula.');
+      if (!t) return msg('pl-ed-msg', 'Escolha a turma. Se não houver nenhuma, cadastre em Turmas.');
+      const linkDig = $('pl-link').value.trim();
+      const link = linkSeguro(linkDig);
+      if (linkDig && !link) return msg('pl-ed-msg', 'O link informado não é válido.');
+      const tema = $('pl-tema').value.trim();
+      if (!tema && !blocos.length) return msg('pl-ed-msg', 'Preencha o foco da aula ou adicione ao menos um bloco.');
+      let id = edId;
+      const existente = planoDe(data, t.id);
+      if (existente && existente.id !== id) {
+        if (!confirm('Já existe um plano para esta turma nesta data. Substituir por este?')) return;
+        id = existente.id;
+      }
+      const ref = id ? doc(db, 'planos_aula', id) : doc(collection(db, 'planos_aula'));
+      await setDoc(ref, {
+        data, turmaId: t.id, turmaNome: t.nome, horario: t.horario || '',
+        tema, objetivo: $('pl-objetivo').value.trim(), link, duracao, blocos,
+        obs: $('pl-obs').value.trim(),
+        status: $('pl-dada').checked ? 'dada' : 'planejada',
+        criadoEm: (planosAula.find(p => p.id === id) || {}).criadoEm || agora,
+        atualizadoEm: agora
+      });
+      $('modal-plano').classList.remove('show');
+      toastPl('Plano salvo ✔');
+    } catch (err) {
+      msg('pl-ed-msg', 'Não foi possível salvar: ' + err.message);
+    }
+  });
+
+  // ----- Ações da aba (cliques) -----
+  $('tab-planejamento').addEventListener('click', async e => {
+    const b = e.target.closest('[data-pl]');
+    if (!b) return;
+    const a = b.dataset.pl;
+    try {
+      switch (a) {
+        case 'visao': plVisao = b.dataset.v; renderPlanejamento(true); break;
+        case 'hoje': plRef = hoje(); renderPlanejamento(true); break;
+        case 'nav': {
+          const n = Number(b.dataset.n);
+          if (plVisao === 'mes') { const r = parseISO(plRef); plRef = isoDe(new Date(r.getFullYear(), r.getMonth() + n, 1)); }
+          else plRef = addDias(plRef, plVisao === 'semana' ? 7 * n : n);
+          renderPlanejamento(true);
+          break;
+        }
+        case 'dia': plRef = b.dataset.d; plVisao = 'dia'; renderPlanejamento(true); break;
+        case 'novo': novoPlano(b.dataset.d, b.dataset.turma || '', ''); break;
+        case 'editar': editarPlano(b.dataset.id); break;
+        case 'dup': duplicarPlano(b.dataset.id); break;
+        case 'del': {
+          const p = planosAula.find(x => x.id === b.dataset.id);
+          if (p && confirm(`Excluir o plano "${p.tema || 'sem título'}" de ${dataBR(p.data)}? Esta ação não pode ser desfeita.`)) {
+            await deleteDoc(doc(db, 'planos_aula', p.id));
+          }
+          break;
+        }
+        case 'status': {
+          const p = planosAula.find(x => x.id === b.dataset.id);
+          if (p) await setDoc(doc(db, 'planos_aula', p.id), { status: p.status === 'dada' ? 'planejada' : 'dada' }, { merge: true });
+          break;
+        }
+        case 'chamada':
+          irPara('presenca');
+          $('pr-turma').value = b.dataset.turma;
+          atualizarAvisoPlano();
+          break;
+        case 'salvar-mes': {
+          const ref = parseISO(plRef);
+          const idMes = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}`;
+          const porMes = {};
+          document.querySelectorAll('.pl-foco').forEach(i => {
+            const m = i.dataset.seg.slice(0, 7);
+            (porMes[m] = porMes[m] || {})[i.dataset.seg] = i.value.trim();
+          });
+          await setDoc(doc(db, 'planejamento_mes', idMes), {
+            tema: $('pl-mes-tema').value.trim(),
+            objetivo: $('pl-mes-obj').value.trim(),
+            semanas: porMes[idMes] || {}
+          }, { merge: true });
+          for (const m of Object.keys(porMes)) {
+            if (m !== idMes) await setDoc(doc(db, 'planejamento_mes', m), { semanas: porMes[m] }, { merge: true });
+          }
+          toastPl('Planejamento salvo ✔');
+          break;
+        }
+        case 'salvar-semana': {
+          const seg = segundaDe(plRef);
+          await setDoc(doc(db, 'planejamento_mes', seg.slice(0, 7)), { semanas: { [seg]: $('pl-sem-foco').value.trim() } }, { merge: true });
+          toastPl('Foco salvo ✔');
+          break;
+        }
+        case 'copiar-semana': {
+          const seg = segundaDe(plRef);
+          const ant = planosAula.filter(p => p.data >= addDias(seg, -7) && p.data <= addDias(seg, -1));
+          const novos = ant.filter(p => !planoDe(addDias(p.data, 7), p.turmaId));
+          if (!novos.length) return alert('Todos os planos da semana anterior já têm um plano correspondente nesta semana.');
+          if (!confirm(`Copiar ${novos.length} plano(s) da semana anterior para esta semana? Observações e o status "dada" não são copiados.`)) return;
+          const agora = new Date().toISOString();
+          await Promise.all(novos.map(p => setDoc(doc(collection(db, 'planos_aula')), {
+            data: addDias(p.data, 7), turmaId: p.turmaId, turmaNome: p.turmaNome || '', horario: p.horario || '',
+            tema: p.tema || '', objetivo: p.objetivo || '', link: p.link || '', duracao: p.duracao || somaMin(p.blocos) || 60,
+            blocos: p.blocos.map(x => ({ ...x, id: uid() })), obs: '', status: 'planejada', criadoEm: agora, atualizadoEm: agora
+          })));
+          toastPl(`${novos.length} plano(s) copiado(s) ✔`);
+          break;
+        }
+        case 'modelo-novo': abrirEditor({ modo: 'modelo', blocos: MODELOS_PADRAO[0].blocos, duracao: MODELOS_PADRAO[0].duracao }); break;
+        case 'modelo-editar': {
+          const m = modelosAula.find(x => x.id === b.dataset.id);
+          if (m) abrirEditor({ modo: 'modelo', id: m.id, nomeModelo: m.nome, blocos: m.blocos, duracao: m.duracao });
+          break;
+        }
+        case 'modelo-usar': novoPlano(plVisao === 'dia' ? plRef : hoje(), '', b.dataset.id); break;
+        case 'modelo-copiar': {
+          const m = MODELOS_PADRAO.find(x => x.id === b.dataset.id);
+          if (m) {
+            await setDoc(doc(collection(db, 'modelos_aula')), {
+              nome: m.nome + ' (cópia)', duracao: m.duracao,
+              blocos: normBlocos(m.blocos).map(({ tipo, descricao, minutos }) => ({ tipo, descricao, minutos })),
+              criadoEm: new Date().toISOString()
+            });
+            toastPl('Modelo copiado ✔');
+          }
+          break;
+        }
+        case 'modelo-del': {
+          const m = modelosAula.find(x => x.id === b.dataset.id);
+          if (m && confirm(`Excluir o modelo "${m.nome}"? Os planos já criados com ele não mudam.`)) {
+            await deleteDoc(doc(db, 'modelos_aula', m.id));
+          }
+          break;
+        }
+      }
+    } catch (err) {
+      alert('Não foi possível concluir: ' + err.message);
+    }
+  });
+
+  $('tab-planejamento').addEventListener('change', e => {
+    if (e.target.id === 'pl-ir-data' && e.target.value) {
+      plRef = e.target.value;
+      renderPlanejamento(true);
+    }
+  });
+
+  // ----- Integração com a aba Presença -----
+  function atualizarAvisoPlano() {
+    const el = $('pr-plano-aviso');
+    if (!el) return;
+    const turmaId = $('pr-turma').value;
+    const p = turmaId ? planoDe(hoje(), turmaId) : null;
+    el.innerHTML = p
+      ? `<div style="margin-top:12px; padding:10px 12px; background:#eef0ff; border-left:4px solid #667eea; border-radius:6px;">📋 <b>Plano de hoje encontrado:</b> ${esc(p.tema || 'sem título')}${p.blocos.length ? ` · ${p.blocos.length} blocos (${somaMin(p.blocos)} min)` : ''}. Será usado ao iniciar a aula.</div>`
+      : '';
+  }
+  $('pr-turma').addEventListener('change', atualizarAvisoPlano);
+
+  // Roteiro da aula em andamento: destaca o bloco da vez conforme o tempo
+  function renderRoteiro() {
+    const el = $('pr-roteiro');
+    if (!el) return;
+    const s = sessaoAtiva;
+    const blocos = s && Array.isArray(s.blocos) ? s.blocos : [];
+    if (!blocos.length) { el.innerHTML = ''; return; }
+    const total = somaMin(blocos);
+    const dec = (Date.now() - new Date(s.iniciadaEm).getTime()) / 60000;
+    let ini = 0, atual = -1;
+    blocos.forEach((b, i) => { if (dec >= ini && dec < ini + b.minutos) atual = i; ini += b.minutos; });
+    let status;
+    if (atual >= 0) {
+      const b = blocos[atual], t = TIPOS_BLOCO[b.tipo] || TIPOS_BLOCO.outro;
+      const fim = blocos.slice(0, atual + 1).reduce((x, y) => x + y.minutos, 0);
+      status = `<b>Agora:</b> ${t.i} ${esc(t.n)}${b.descricao ? ' — ' + esc(b.descricao) : ''} · faltam ${Math.max(1, Math.ceil(fim - dec))} min`;
+    } else {
+      status = `⏱️ Tempo previsto (${total} min) encerrado${dec > total ? ` há ${Math.floor(dec - total)} min` : ''}.`;
+    }
+    const pos = Math.max(0, Math.min(100, dec / total * 100));
+    let acum = 0;
+    const linhas = blocos.map((b, i) => {
+      const t = TIPOS_BLOCO[b.tipo] || TIPOS_BLOCO.outro;
+      const l = `<div style="display:flex; gap:10px; padding:6px 8px; border-radius:6px; ${i === atual ? 'background:#fff3cd; font-weight:600;' : ''} ${acum + b.minutos <= dec ? 'opacity:.5;' : ''}">
+        <span style="min-width:70px; font-size:12px;">${acum}–${acum + b.minutos} min</span>
+        <span>${acum + b.minutos <= dec ? '✔' : t.i} ${esc(t.n)}${b.descricao ? ` <span class="muted">· ${esc(b.descricao)}</span>` : ''}</span></div>`;
+      acum += b.minutos;
+      return l;
+    }).join('');
+    el.innerHTML = `<div style="margin:14px 0; padding:12px 14px; background:#f9f9f9; border-radius:8px;">
+      <div style="margin-bottom:8px;">📋 <b>Roteiro da aula</b>${s.objetivo ? ` <span class="muted">· 🎯 ${esc(s.objetivo)}</span>` : ''}</div>
+      <div style="position:relative; margin-bottom:10px;">${barraBlocos(blocos, 14)}<div style="position:absolute; top:-3px; bottom:-3px; left:${pos}%; width:3px; background:#222; border-radius:2px;"></div></div>
+      <div style="margin-bottom:8px;">${status}</div>${linhas}</div>`;
+  }
+  setInterval(renderRoteiro, 20000);
 
   // ---------- Fechar modais ----------
   document.querySelectorAll('[data-fechar]').forEach(b => {
