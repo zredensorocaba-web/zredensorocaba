@@ -59,6 +59,10 @@
   .pl-chip.dada { background: #d4edda; color: #155724; }
   .pl-chip.sem { background: #fff3cd; color: #856404; }
   .pl-chip.passou { background: #eee; color: #888; }
+  .pl-chip.falta { background: #f8d7da; color: #721c24; }
+  .pl-cel.estatico { cursor: default; }
+  .pl-cel.estatico:hover { border-color: #eee; }
+  .pl-cel.estatico.hoje:hover { border-color: #667eea; }
   .pl-aula { border: 1px solid #eee; border-left: 5px solid #667eea; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff; }
   .pl-bloco { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
   textarea.pl-ta { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 6px; font: inherit; font-size: 14px; box-sizing: border-box; }
@@ -141,6 +145,11 @@
         <div class="stat"><small>Alunos ativos</small><div id="st-ativos">0</div></div>
         <div class="stat"><small>Turmas</small><div id="st-turmas">0</div></div>
         <div class="stat"><small>Previsto por mês</small><div id="st-previsto">R$ 0</div></div>
+      </div>
+      <div class="card" id="card-ausentes">
+        <h2>⚠️ Alunos que precisam de atenção <span id="ausentes-contagem" class="badge" style="background:#28a745; color:#222;">0</span></h2>
+        <p class="muted" id="ausentes-regra" style="margin-top:-6px;"></p>
+        <div id="ausentes-lista"></div>
       </div>
       <div class="card">
         <h2>🎂 Aniversariantes</h2>
@@ -323,6 +332,19 @@
         </div>
       </div>
 
+      <div class="card" id="rel-individual">
+        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+          <h2 style="margin:0;">👤 Acompanhamento individual</h2>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="ri-aluno" style="width:auto; min-width:200px;"></select>
+            <button class="sec sm" id="ri-prev">◀</button>
+            <strong id="ri-mes" style="min-width:130px; text-align:center;"></strong>
+            <button class="sec sm" id="ri-next">▶</button>
+          </div>
+        </div>
+        <div id="ri-corpo" style="margin-top:14px;"></div>
+      </div>
+
       <div class="card">
         <h2>Receita recebida (últimos 6 meses)</h2>
         <div style="overflow-x:auto;">
@@ -340,7 +362,7 @@
         </div>
         <div style="overflow-x:auto; margin-top:12px;">
           <table>
-            <thead><tr><th>Aluno</th><th>Faixa</th><th>Plano</th><th>Aulas no mês</th><th>Graus na faixa</th></tr></thead>
+            <thead><tr><th>Aluno</th><th>Faixa</th><th>Plano</th><th>Aulas no mês</th><th>Faltas no mês</th><th>Última aula</th><th>Graus na faixa</th><th></th></tr></thead>
             <tbody id="rel-alunos"></tbody>
           </table>
         </div>
@@ -393,6 +415,15 @@
         <label>Aniversário de academia</label>
         <textarea id="cfg-msg-aniv-academia" rows="3" style="width:100%; padding:9px; border:1px solid #ccc; border-radius:6px; font:inherit;"></textarea>
         <p class="muted">Use: {nome} {academia} {anos}</p>
+
+        <h2 style="margin-top:22px;">Alerta de alunos ausentes</h2>
+        <div class="row">
+          <div><label>Avisar após quantos dias sem treinar</label><input type="number" id="cfg-alerta-dias" min="3" max="120"></div>
+          <div><label>Avisar após quantas faltas seguidas</label><input type="number" id="cfg-alerta-faltas" min="2" max="20"></div>
+        </div>
+        <label>Mensagem para o aluno ausente (WhatsApp)</label>
+        <textarea id="cfg-msg-ausente" rows="3" style="width:100%; padding:9px; border:1px solid #ccc; border-radius:6px; font:inherit;"></textarea>
+        <p class="muted">Use: {nome} {academia} {dias}. Também alerta quando a frequência dos últimos 30 dias fica abaixo de 50%.</p>
 
         <h2 style="margin-top:22px;">Identidade visual</h2>
         <div class="row">
@@ -981,6 +1012,9 @@
     $('cfg-msg-modelo').value = config.msgCobranca || MSG_PADRAO;
     $('cfg-msg-aniv-idade').value = config.msgAnivIdade || MSG_ANIV_IDADE;
     $('cfg-msg-aniv-academia').value = config.msgAnivAcademia || MSG_ANIV_ACADEMIA;
+    $('cfg-alerta-dias').value = config.alertaDias || 14;
+    $('cfg-alerta-faltas').value = config.alertaFaltas || 3;
+    $('cfg-msg-ausente').value = config.msgAusente || MSG_AUSENTE;
     ['1x','2x','3x','livre'].forEach(p => { $('cfg-p-' + p).value = config.planos[p]; });
     ['branca','azul','roxa','marrom','preta'].forEach(f => { $('req-' + f).value = config.requisitos[f]; });
   }
@@ -1005,6 +1039,9 @@
         msgCobranca: $('cfg-msg-modelo').value.trim() || MSG_PADRAO,
         msgAnivIdade: $('cfg-msg-aniv-idade').value.trim() || MSG_ANIV_IDADE,
         msgAnivAcademia: $('cfg-msg-aniv-academia').value.trim() || MSG_ANIV_ACADEMIA,
+        alertaDias: Math.max(3, Number($('cfg-alerta-dias').value) || 14),
+        alertaFaltas: Math.max(2, Number($('cfg-alerta-faltas').value) || 3),
+        msgAusente: $('cfg-msg-ausente').value.trim() || MSG_AUSENTE,
         cor1: $('cfg-cor1').value,
         cor2: $('cfg-cor2').value,
         logo: logoTemp ?? config.logo ?? '',
@@ -1038,6 +1075,12 @@
       presencasHoje = presencas.filter(p => p.data === hoje());
       sincronizarFinanceiro();
       renderPresenca();
+    }));
+    // Aulas realizadas nos últimos 180 dias: base para calcular faltas de cada aluno
+    unsubs.push(onSnapshot(query(collection(db, 'sessoes'), where('data', '>=', addDias(hoje(), -180))), snap => {
+      sessoesRecentes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAlertasAusencia();
+      renderRelatorios();
     }));
   }
 
@@ -1340,6 +1383,7 @@
     renderFaixas();
     renderAvisos();
     renderRetornos();
+    renderAlertasAusencia();
     renderAvulsos();
     renderRelatorios();
     if (alunoGraus && $('modal-graus').classList.contains('show')) renderHistorico();
@@ -1984,11 +2028,19 @@
       return `<tr><td>${m}</td><td>${reais(total)}</td></tr>`;
     }).join('');
 
-    $('rel-alunos').innerHTML = alunos.length ? alunos.map(a => `
-      <tr><td>${esc(a.nome)}</td><td>${capitalizar(a.faixa)}</td><td>${NOMES_PLANO[a.plano || '2x']}</td>
+    $('rel-alunos').innerHTML = alunos.length ? alunos.map(a => {
+      const faltas = aulasDoAluno(a, mesDe, ate).filter(x => !x.presente).length;
+      const ult = ultimaPresenca(a);
+      return `
+      <tr><td>${esc(a.nome)}${(a.status || 'ativo') !== 'ativo' ? ` <span class="muted">(${esc(a.status)})</span>` : ''}</td><td>${capitalizar(a.faixa)}</td><td>${NOMES_PLANO[a.plano || '2x']}</td>
       <td>${aulasNoPeriodo(a.id, mesDe, ate)}</td>
-      <td>${(a.graus || []).filter(g => g.faixa === a.faixa).length}</td></tr>`).join('')
-      : '<tr><td colspan="5" class="muted">Nenhum aluno cadastrado.</td></tr>';
+      <td>${faltas ? `<b style="color:#721c24;">${faltas}</b>` : 0}</td>
+      <td>${ult ? `${dataCurta(ult)} <span class="muted">(${haDias(ult)})</span>` : '<span class="muted">nunca</span>'}</td>
+      <td>${(a.graus || []).filter(g => g.faixa === a.faixa).length}</td>
+      <td><button class="sm" data-ri="${a.id}">📅 Detalhar</button></td></tr>`;
+    }).join('')
+      : '<tr><td colspan="8" class="muted">Nenhum aluno cadastrado.</td></tr>';
+    renderRelIndividual();
   }
 
   function baixar(conteudo, nome, tipo) {
@@ -2002,10 +2054,12 @@
   $('btn-csv').addEventListener('click', () => {
     const ate = dataLocal(new Date());
     const mesDe = mesAtual() + '-01';
-    const linhas = [['Aluno', 'Faixa', 'Plano', 'Aulas no mês', 'Graus na faixa']];
+    const linhas = [['Aluno', 'Faixa', 'Plano', 'Aulas no mês', 'Faltas no mês', 'Última aula', 'Graus na faixa']];
     alunos.forEach(a => linhas.push([
       a.nome, capitalizar(a.faixa), NOMES_PLANO[a.plano || '2x'],
       aulasNoPeriodo(a.id, mesDe, ate),
+      aulasDoAluno(a, mesDe, ate).filter(x => !x.presente).length,
+      ultimaPresenca(a) ? dataBR(ultimaPresenca(a)) : 'nunca',
       (a.graus || []).filter(g => g.faixa === a.faixa).length
     ]));
     const csv = linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -2888,6 +2942,250 @@
       <div style="margin-bottom:8px;">${status}</div>${linhas}</div>`;
   }
   setInterval(renderRoteiro, 20000);
+
+  // ---------- Ausências, alertas e acompanhamento individual ----------
+  const MSG_AUSENTE = 'Oi {nome}, tudo bem? Aqui é da {academia}. Sentimos sua falta nos treinos! Está tudo certo por aí? Quando quiser voltar, a gente te espera. 🥋';
+  let sessoesRecentes = [];
+  let riAluno = '', riMes = hoje().slice(0, 7), alertasTodos = false;
+
+  const diffDias = (de, ate) => Math.round((parseISO(ate) - parseISO(de)) / 86400000);
+  const haDias = iso => { const d = diffDias(iso, hoje()); return d <= 0 ? 'hoje' : d === 1 ? 'ontem' : `há ${d} dias`; };
+  const mudarMes = (ym, n) => { const [y, m] = ym.split('-').map(Number); return isoDe(new Date(y, m - 1 + n, 1)).slice(0, 7); };
+
+  function abrirWhatsApp(a, texto) {
+    let tel = String(a.telefone || '').replace(/\D/g, '');
+    if (tel.length < 10) return alert(`${a.nome} não tem telefone cadastrado. Edite o aluno e preencha o WhatsApp.`);
+    if (tel.length <= 11) tel = '55' + tel;
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(texto)}`, '_blank');
+  }
+
+  // Aulas de um aluno no período: as que aconteceram para ele (aluno estava na lista da aula) + presenças.
+  // Uma aula = turma + dia. Aula em andamento não conta como falta.
+  function aulasDoAluno(a, de, ate) {
+    const mapa = new Map();
+    sessoesRecentes.forEach(s => {
+      if (s.ativa || s.data < de || s.data > ate) return;
+      if (!(s.roster || []).some(r => r.id === a.id)) return;
+      const k = `${s.data}|${s.turmaId}`;
+      if (!mapa.has(k)) mapa.set(k, { data: s.data, turmaId: s.turmaId, turmaNome: s.turmaNome, horario: s.horario, presente: false });
+    });
+    presencas.forEach(p => {
+      if (p.alunoId !== a.id || !p.presente || p.data < de || p.data > ate) return;
+      const k = `${p.data}|${p.turmaId}`;
+      const t = turmas.find(x => x.id === p.turmaId);
+      const item = mapa.get(k) || { data: p.data, turmaId: p.turmaId, turmaNome: t ? t.nome : '', horario: t ? t.horario : '' };
+      item.presente = true;
+      item.origem = p.origem;
+      item.hora = p.horario;
+      mapa.set(k, item);
+    });
+    return [...mapa.values()].sort((x, y) => x.data.localeCompare(y.data) || (x.horario || '').localeCompare(y.horario || ''));
+  }
+
+  const ultimaPresenca = a => presencas
+    .filter(p => p.alunoId === a.id && p.presente)
+    .reduce((m, p) => (p.data > m ? p.data : m), '');
+
+  function resumoAusencia(a) {
+    const h = hoje();
+    const ultima = ultimaPresenca(a);
+    const ref = ultima || a.dataInicio || '';
+    const dias = ref ? Math.max(0, diffDias(ref, h)) : null;
+    const aulas = aulasDoAluno(a, addDias(h, -90), h);
+    const de30 = addDias(h, -30);
+    const rec = aulas.filter(x => x.data >= de30);
+    const vindas = rec.filter(x => x.presente).length;
+    let seguidas = 0;
+    for (let i = aulas.length - 1; i >= 0 && !aulas[i].presente; i--) seguidas++;
+    return { ultima, dias, esperadas: rec.length, vindas, seguidas, freq: rec.length ? vindas / rec.length : null };
+  }
+
+  function listaAusentes() {
+    const limDias = Number(config.alertaDias) || 14;
+    const limFaltas = Number(config.alertaFaltas) || 3;
+    const h = hoje();
+    const out = [];
+    alunos
+      .filter(a => (a.status || 'ativo') === 'ativo' && !(a.alertaAdiadoAte && a.alertaAdiadoAte >= h))
+      .forEach(a => {
+        const r = resumoAusencia(a);
+        const motivos = [];
+        if (r.dias != null && r.dias >= limDias) {
+          motivos.push(r.ultima ? `última aula há ${r.dias} dias` : `ainda não treinou (matriculado há ${r.dias} dias)`);
+        }
+        if (r.seguidas >= limFaltas) motivos.push(`faltou às últimas ${r.seguidas} aulas`);
+        if (r.esperadas >= 4 && r.freq < 0.5) motivos.push(`veio a ${r.vindas} de ${r.esperadas} aulas nos últimos 30 dias`);
+        if (motivos.length) out.push({ a, r, motivos, grave: (r.dias != null && r.dias >= 30) || r.seguidas >= limFaltas * 2 });
+      });
+    return out.sort((x, y) => (y.r.dias ?? -1) - (x.r.dias ?? -1));
+  }
+
+  function renderAlertasAusencia() {
+    const el = $('ausentes-lista');
+    if (!el) return;
+    const limDias = Number(config.alertaDias) || 14;
+    const limFaltas = Number(config.alertaFaltas) || 3;
+    $('ausentes-regra').textContent = `Alerta quando o aluno ativo está ${limDias}+ dias sem treinar, tem ${limFaltas}+ faltas seguidas ou veio a menos da metade das aulas nos últimos 30 dias. Ajuste em Configurações.`;
+    const lista = listaAusentes();
+    const badge = $('ausentes-contagem');
+    badge.textContent = lista.length;
+    badge.style.background = lista.length ? '#ffc107' : '#28a745';
+    if (!lista.length) {
+      el.innerHTML = '<p class="muted">Nenhum aluno ausente no momento. Todos estão treinando em dia! 🎉</p>';
+      return;
+    }
+    const visiveis = alertasTodos ? lista : lista.slice(0, 8);
+    el.innerHTML = visiveis.map(({ a, r, motivos, grave }) => `
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px; margin-bottom:8px; background:#f9f9f9; border-left:4px solid ${grave ? '#dc3545' : '#ffc107'}; border-radius:6px;">
+        ${avatar(a)}
+        <div style="flex:1; min-width:180px;">
+          <strong>${esc(a.nome)}</strong> <span class="muted">· ${capitalizar(a.faixa)}</span><br>
+          <small>${motivos.map(esc).join(' · ')}</small><br>
+          <small class="muted">Última aula: ${r.ultima ? `${dataBR(r.ultima)} (${haDias(r.ultima)})` : 'nenhuma registrada'}</small>
+        </div>
+        <div style="white-space:nowrap;">
+          <button class="sm" data-aus="whats" data-id="${a.id}">📲 Chamar</button>
+          <button class="sm sec" data-aus="detalhe" data-id="${a.id}">📅 Detalhes</button>
+          <button class="sm sec" data-aus="adiar" data-id="${a.id}" title="Esconde este aviso por 7 dias">💤 Adiar 7 dias</button>
+        </div>
+      </div>`).join('')
+      + (lista.length > 8 ? `<button class="sm sec" data-aus="todos">${alertasTodos ? 'Mostrar menos' : `Ver todos (${lista.length})`}</button>` : '');
+  }
+
+  $('ausentes-lista').addEventListener('click', async e => {
+    const b = e.target.closest('[data-aus]');
+    if (!b) return;
+    const a = alunos.find(x => x.id === b.dataset.id);
+    try {
+      switch (b.dataset.aus) {
+        case 'todos': alertasTodos = !alertasTodos; renderAlertasAusencia(); break;
+        case 'whats': {
+          if (!a) return;
+          const r = resumoAusencia(a);
+          const modelo = config.msgAusente || MSG_AUSENTE;
+          const valores = { nome: (a.nome || '').split(' ')[0], academia: config.nome, dias: r.dias != null ? `${r.dias} dias` : '' };
+          abrirWhatsApp(a, modelo.replace(/\{(\w+)\}/g, (m, k) => (k in valores ? valores[k] : m)));
+          break;
+        }
+        case 'detalhe':
+          if (!a) return;
+          riAluno = a.id;
+          riMes = hoje().slice(0, 7);
+          irPara('relatorios');
+          renderRelIndividual();
+          $('rel-individual').scrollIntoView({ behavior: 'smooth' });
+          break;
+        case 'adiar':
+          if (a) await setDoc(doc(db, 'alunos', a.id), { alertaAdiadoAte: addDias(hoje(), 7) }, { merge: true });
+          break;
+      }
+    } catch (err) {
+      alert('Não foi possível concluir: ' + err.message);
+    }
+  });
+
+  // ----- Acompanhamento individual (aba Relatórios) -----
+  function linhasIndividual(a, aulas) {
+    return [['Data', 'Dia', 'Turma', 'Horário', 'Situação', 'Como marcou']].concat(aulas.map(x => [
+      dataBR(x.data), NOMES_DIA_LONGO[parseISO(x.data).getDay()], x.turmaNome || '', x.horario || '',
+      x.presente ? 'Presente' : 'Faltou', x.presente ? (x.origem === 'qr' ? 'QR code' : 'Professor') : ''
+    ]));
+  }
+
+  function renderRelIndividual() {
+    const sel = $('ri-aluno');
+    if (!sel) return;
+    const sig = alunos.map(a => a.id + '|' + a.nome + '|' + (a.status || '')).join(';');
+    if (sel.dataset.sig !== sig) {
+      sel.dataset.sig = sig;
+      sel.innerHTML = '<option value="">— escolha um aluno —</option>' + alunos.map(a =>
+        `<option value="${a.id}">${esc(a.nome)}${(a.status || 'ativo') !== 'ativo' ? ' (' + esc(a.status) + ')' : ''}</option>`).join('');
+    }
+    sel.value = riAluno;
+    const [ano, mes] = riMes.split('-').map(Number);
+    $('ri-mes').textContent = `${NOMES_MES[mes - 1]} de ${ano}`;
+    const corpo = $('ri-corpo');
+    const a = alunos.find(x => x.id === riAluno);
+    if (!a) {
+      corpo.innerHTML = '<p class="muted">Escolha um aluno para ver, dia a dia, as aulas, as presenças e as faltas.</p>';
+      return;
+    }
+    const primeiro = `${riMes}-01`;
+    const ultimo = isoDe(new Date(ano, mes, 0));
+    const aulas = aulasDoAluno(a, primeiro, ultimo);
+    const vindas = aulas.filter(x => x.presente).length;
+    const faltas = aulas.length - vindas;
+    const freq = aulas.length ? Math.round(vindas * 100 / aulas.length) : null;
+    const r = resumoAusencia(a);
+    const g = statusGraduacao(a);
+
+    const stats = `<div class="stats">
+      <div class="stat"><small>Presenças</small><div>${vindas}</div></div>
+      <div class="stat"><small>Faltas</small><div>${faltas}</div></div>
+      <div class="stat"><small>Frequência</small><div>${freq == null ? '-' : freq + '%'}</div></div>
+      <div class="stat"><small>Última aula</small><div style="font-size:16px;">${r.ultima ? `${dataCurta(r.ultima)} · ${haDias(r.ultima)}` : 'nunca'}</div></div>
+      <div class="stat"><small>Faltas seguidas agora</small><div>${r.seguidas}</div></div>
+      <div class="stat"><small>Rumo ao próximo grau</small><div>${g.aulas}/${g.req}</div></div>
+    </div>`;
+
+    const semanas = [];
+    for (let s = segundaDe(primeiro); s <= ultimo; s = addDias(s, 7)) semanas.push(s);
+    const porDia = {};
+    aulas.forEach(x => (porDia[x.data] = porDia[x.data] || []).push(x));
+    let celulas = '';
+    semanas.forEach(s => {
+      for (let i = 0; i < 7; i++) {
+        const d = addDias(s, i);
+        const fora = d < primeiro || d > ultimo;
+        const chips = fora ? '' : (porDia[d] || []).map(x =>
+          `<div class="pl-chip ${x.presente ? 'dada' : 'falta'}" title="${esc(x.turmaNome || '')} — ${x.presente ? 'presente' : 'faltou'}">${esc(x.horario || '')} ${x.presente ? '✔' : '✖'}</div>`).join('');
+        celulas += `<div class="pl-cel estatico${fora ? ' fora' : ''}${d === hoje() ? ' hoje' : ''}"><div class="pl-n">${Number(d.slice(8))}</div>${chips}</div>`;
+      }
+    });
+    const grade = `<div style="overflow-x:auto;"><div class="pl-grade">
+      ${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(n => `<div class="pl-cab">${n}</div>`).join('')}${celulas}</div></div>
+      <p class="muted">✔ presente · ✖ faltou (aula que aconteceu e o aluno estava na turma).</p>`;
+
+    const linhas = aulas.length ? aulas.map(x => `<tr>
+      <td>${dataBR(x.data)} <span class="muted">${NOMES_DIA_LONGO[parseISO(x.data).getDay()].slice(0, 3)}</span></td>
+      <td>${esc(x.turmaNome || '-')}</td><td>${esc(x.horario || '-')}</td>
+      <td>${x.presente ? '<b style="color:#155724;">✔ Presente</b>' : '<b style="color:#721c24;">✖ Faltou</b>'}</td>
+      <td>${x.presente ? (x.origem === 'qr' ? `📱 QR${x.hora ? ' às ' + esc(x.hora) : ''}` : '✍️ professor') : ''}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="muted">Nenhuma aula registrada neste mês para este aluno.</td></tr>';
+
+    const aviso = primeiro < addDias(hoje(), -180)
+      ? '<p class="muted">Para meses mais antigos só aparecem as presenças: as faltas são calculadas com as aulas registradas nos últimos 180 dias.</p>' : '';
+
+    corpo.innerHTML = `${stats}${grade}
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px;">
+        <h3 style="margin:0;">Detalhe por aula</h3>
+        <button class="sm" data-ri-csv="1">📥 Exportar este aluno</button>
+      </div>
+      <div style="overflow-x:auto; margin-top:8px;"><table>
+        <thead><tr><th>Data</th><th>Turma</th><th>Horário</th><th>Situação</th><th>Como marcou</th></tr></thead>
+        <tbody>${linhas}</tbody></table></div>${aviso}`;
+  }
+
+  $('ri-aluno').addEventListener('change', e => { riAluno = e.target.value; renderRelIndividual(); });
+  $('ri-prev').addEventListener('click', () => { riMes = mudarMes(riMes, -1); renderRelIndividual(); });
+  $('ri-next').addEventListener('click', () => { riMes = mudarMes(riMes, 1); renderRelIndividual(); });
+  $('rel-alunos').addEventListener('click', e => {
+    const b = e.target.closest('[data-ri]');
+    if (!b) return;
+    riAluno = b.dataset.ri;
+    riMes = hoje().slice(0, 7);
+    renderRelIndividual();
+    $('rel-individual').scrollIntoView({ behavior: 'smooth' });
+  });
+  $('ri-corpo').addEventListener('click', e => {
+    if (!e.target.closest('[data-ri-csv]')) return;
+    const a = alunos.find(x => x.id === riAluno);
+    if (!a) return;
+    const [ano, mes] = riMes.split('-').map(Number);
+    const aulas = aulasDoAluno(a, `${riMes}-01`, isoDe(new Date(ano, mes, 0)));
+    const csv = linhasIndividual(a, aulas).map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    baixar(csv, `${(a.nome || 'aluno').replace(/[^\w]+/g, '-')}-${riMes}.csv`, 'text/csv');
+  });
 
   // ---------- Fechar modais ----------
   document.querySelectorAll('[data-fechar]').forEach(b => {
