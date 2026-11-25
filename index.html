@@ -2961,25 +2961,36 @@
 
   // Aulas de um aluno no período: as que aconteceram para ele (aluno estava na lista da aula) + presenças.
   // Uma aula = turma + dia. Aula em andamento não conta como falta.
-  function aulasDoAluno(a, de, ate) {
+  // incluirAbonadas: faltas abonadas só aparecem no acompanhamento individual; nas contas e alertas ficam de fora
+  function aulasDoAluno(a, de, ate, incluirAbonadas = false) {
     const mapa = new Map();
     sessoesRecentes.forEach(s => {
       if (s.ativa || s.data < de || s.data > ate) return;
       if (!(s.roster || []).some(r => r.id === a.id)) return;
       const k = `${s.data}|${s.turmaId}`;
-      if (!mapa.has(k)) mapa.set(k, { data: s.data, turmaId: s.turmaId, turmaNome: s.turmaNome, horario: s.horario, presente: false });
+      let item = mapa.get(k);
+      if (!item) {
+        item = { data: s.data, turmaId: s.turmaId, turmaNome: s.turmaNome, horario: s.horario, presente: false, abonada: true, sids: [] };
+        mapa.set(k, item);
+      }
+      item.sids.push(s.id);
+      item.abonada = item.abonada && (s.abonados || []).includes(a.id);
     });
     presencas.forEach(p => {
       if (p.alunoId !== a.id || !p.presente || p.data < de || p.data > ate) return;
       const k = `${p.data}|${p.turmaId}`;
       const t = turmas.find(x => x.id === p.turmaId);
-      const item = mapa.get(k) || { data: p.data, turmaId: p.turmaId, turmaNome: t ? t.nome : '', horario: t ? t.horario : '' };
+      const item = mapa.get(k) || { data: p.data, turmaId: p.turmaId, turmaNome: t ? t.nome : '', horario: t ? t.horario : '', abonada: false, sids: [] };
       item.presente = true;
+      item.abonada = false;
       item.origem = p.origem;
       item.hora = p.horario;
+      item.ids = [...(item.ids || []), p.id];
       mapa.set(k, item);
     });
-    return [...mapa.values()].sort((x, y) => x.data.localeCompare(y.data) || (x.horario || '').localeCompare(y.horario || ''));
+    return [...mapa.values()]
+      .filter(x => incluirAbonadas || !x.abonada)
+      .sort((x, y) => x.data.localeCompare(y.data) || (x.horario || '').localeCompare(y.horario || ''));
   }
 
   const ultimaPresenca = a => presencas
@@ -3088,7 +3099,7 @@
   function linhasIndividual(a, aulas) {
     return [['Data', 'Dia', 'Turma', 'Horário', 'Situação', 'Como marcou']].concat(aulas.map(x => [
       dataBR(x.data), NOMES_DIA_LONGO[parseISO(x.data).getDay()], x.turmaNome || '', x.horario || '',
-      x.presente ? 'Presente' : 'Faltou', x.presente ? (x.origem === 'qr' ? 'QR code' : 'Professor') : ''
+      x.presente ? 'Presente' : (x.abonada ? 'Falta abonada' : 'Faltou'), x.presente ? (x.origem === 'qr' ? 'QR code' : 'Professor') : ''
     ]));
   }
 
@@ -3112,10 +3123,10 @@
     }
     const primeiro = `${riMes}-01`;
     const ultimo = isoDe(new Date(ano, mes, 0));
-    const aulas = aulasDoAluno(a, primeiro, ultimo);
+    const aulas = aulasDoAluno(a, primeiro, ultimo, true);
     const vindas = aulas.filter(x => x.presente).length;
-    const faltas = aulas.length - vindas;
-    const freq = aulas.length ? Math.round(vindas * 100 / aulas.length) : null;
+    const faltas = aulas.filter(x => !x.presente && !x.abonada).length;
+    const freq = (vindas + faltas) ? Math.round(vindas * 100 / (vindas + faltas)) : null;
     const r = resumoAusencia(a);
     const g = statusGraduacao(a);
 
@@ -3138,20 +3149,27 @@
         const d = addDias(s, i);
         const fora = d < primeiro || d > ultimo;
         const chips = fora ? '' : (porDia[d] || []).map(x =>
-          `<div class="pl-chip ${x.presente ? 'dada' : 'falta'}" title="${esc(x.turmaNome || '')} — ${x.presente ? 'presente' : 'faltou'}">${esc(x.horario || '')} ${x.presente ? '✔' : '✖'}</div>`).join('');
+          `<div class="pl-chip ${x.presente ? 'dada' : x.abonada ? 'passou' : 'falta'}" title="${esc(x.turmaNome || '')} — ${x.presente ? 'presente' : x.abonada ? 'falta abonada' : 'faltou'}">${esc(x.horario || '')} ${x.presente ? '✔' : x.abonada ? '➖' : '✖'}</div>`).join('');
         celulas += `<div class="pl-cel estatico${fora ? ' fora' : ''}${d === hoje() ? ' hoje' : ''}"><div class="pl-n">${Number(d.slice(8))}</div>${chips}</div>`;
       }
     });
     const grade = `<div style="overflow-x:auto;"><div class="pl-grade">
       ${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(n => `<div class="pl-cab">${n}</div>`).join('')}${celulas}</div></div>
-      <p class="muted">✔ presente · ✖ faltou (aula que aconteceu e o aluno estava na turma).</p>`;
+      <p class="muted">✔ presente · ✖ faltou (aula que aconteceu e o aluno estava na turma) · ➖ falta abonada (não conta como falta).</p>`;
 
-    const linhas = aulas.length ? aulas.map(x => `<tr>
+    const presPorDia = {};
+    aulas.filter(x => x.presente).forEach(x => { presPorDia[x.data] = (presPorDia[x.data] || 0) + 1; });
+    const linhas = aulas.length ? aulas.map(x => {
+      const ids = x.ids || [];
+      const attrs = `data-data="${esc(x.data)}" data-turma="${esc(x.turmaId)}"`;
+      return `<tr>
       <td>${dataBR(x.data)} <span class="muted">${NOMES_DIA_LONGO[parseISO(x.data).getDay()].slice(0, 3)}</span></td>
       <td>${esc(x.turmaNome || '-')}</td><td>${esc(x.horario || '-')}</td>
-      <td>${x.presente ? '<b style="color:#155724;">✔ Presente</b>' : '<b style="color:#721c24;">✖ Faltou</b>'}</td>
-      <td>${x.presente ? (x.origem === 'qr' ? `📱 QR${x.hora ? ' às ' + esc(x.hora) : ''}` : '✍️ professor') : ''}</td></tr>`).join('')
-      : '<tr><td colspan="5" class="muted">Nenhuma aula registrada neste mês para este aluno.</td></tr>';
+      <td>${x.presente ? '<b style="color:#155724;">✔ Presente</b>' : x.abonada ? '<b style="color:#666;">➖ Falta abonada</b>' : '<b style="color:#721c24;">✖ Faltou</b>'}${ids.length > 1 ? ` <span class="muted">(${ids.length} registros)</span>` : ''}${x.presente && presPorDia[x.data] > 1 ? '<br><small style="color:#856404;">⚠️ mais de uma aula neste dia</small>' : ''}</td>
+      <td>${x.presente ? (x.origem === 'qr' ? `📱 QR${x.hora ? ' às ' + esc(x.hora) : ''}` : '✍️ professor') : ''}</td>
+      <td style="white-space:nowrap;">${x.presente && ids.length ? `<button class="sm del" data-ri-del="1" ${attrs}>🗑️ Excluir</button>${ids.length > 1 ? `<button class="sm" data-ri-dedup="1" ${attrs}>🧹 Manter 1</button>` : ''}` : (x.abonada ? `<button class="sm sec" data-ri-desabonar="1" ${attrs}>↩️ Desfazer abono</button>` : (!x.presente && x.sids && x.sids.length ? `<button class="sm sec" data-ri-abonar="1" ${attrs}>🚫 Abonar falta</button>` : ''))}</td></tr>`;
+    }).join('')
+      : '<tr><td colspan="6" class="muted">Nenhuma aula registrada neste mês para este aluno.</td></tr>';
 
     const aviso = primeiro < addDias(hoje(), -180)
       ? '<p class="muted">Para meses mais antigos só aparecem as presenças: as faltas são calculadas com as aulas registradas nos últimos 180 dias.</p>' : '';
@@ -3162,7 +3180,7 @@
         <button class="sm" data-ri-csv="1">📥 Exportar este aluno</button>
       </div>
       <div style="overflow-x:auto; margin-top:8px;"><table>
-        <thead><tr><th>Data</th><th>Turma</th><th>Horário</th><th>Situação</th><th>Como marcou</th></tr></thead>
+        <thead><tr><th>Data</th><th>Turma</th><th>Horário</th><th>Situação</th><th>Como marcou</th><th></th></tr></thead>
         <tbody>${linhas}</tbody></table></div>${aviso}`;
   }
 
@@ -3177,12 +3195,52 @@
     renderRelIndividual();
     $('rel-individual').scrollIntoView({ behavior: 'smooth' });
   });
-  $('ri-corpo').addEventListener('click', e => {
-    if (!e.target.closest('[data-ri-csv]')) return;
+  $('ri-corpo').addEventListener('click', async e => {
     const a = alunos.find(x => x.id === riAluno);
     if (!a) return;
+    const ba = e.target.closest('[data-ri-abonar]');
+    const bz = e.target.closest('[data-ri-desabonar]');
+    if (ba || bz) {
+      const b = ba || bz;
+      const aula = aulasDoAluno(a, b.dataset.data, b.dataset.data, true).find(x => x.turmaId === b.dataset.turma && !x.presente);
+      if (!aula || !aula.sids.length) return;
+      try {
+        if (ba && !confirm(`Abonar a falta de ${a.nome} em ${dataBR(aula.data)} (${aula.turmaNome || 'turma'})?\n\nEla deixa de contar como falta e de gerar alerta. Dá para desfazer depois.`)) return;
+        await Promise.all(aula.sids.map(sid => {
+          const s = sessoesRecentes.find(x => x.id === sid);
+          const atuais = (s && s.abonados) || [];
+          const novos = ba ? [...new Set([...atuais, a.id])] : atuais.filter(id => id !== a.id);
+          return setDoc(doc(db, 'sessoes', sid), { abonados: novos }, { merge: true });
+        }));
+      } catch (err) {
+        alert('Não foi possível atualizar: ' + err.message);
+      }
+      return;
+    }
+    const bd = e.target.closest('[data-ri-del]');
+    const bu = e.target.closest('[data-ri-dedup]');
+    if (bd || bu) {
+      const b = bd || bu;
+      const aula = aulasDoAluno(a, b.dataset.data, b.dataset.data).find(x => x.turmaId === b.dataset.turma && x.presente);
+      if (!aula || !aula.ids || !aula.ids.length) return;
+      const quando = `${dataBR(aula.data)} (${aula.turmaNome || 'turma'}${aula.horario ? ' · ' + aula.horario : ''})`;
+      try {
+        if (bd) {
+          const extra = aula.ids.length > 1 ? `\n\nHá ${aula.ids.length} registros desta aula; todos serão excluídos.` : '';
+          if (!confirm(`Excluir a presença de ${a.nome} em ${quando}?${extra}\n\nEsta ação não pode ser desfeita.`)) return;
+          await Promise.all(aula.ids.map(id => deleteDoc(doc(db, 'presencas', id))));
+        } else {
+          if (!confirm(`Manter só 1 registro de ${a.nome} em ${quando} e apagar os ${aula.ids.length - 1} repetidos?`)) return;
+          await Promise.all(aula.ids.slice(1).map(id => deleteDoc(doc(db, 'presencas', id))));
+        }
+      } catch (err) {
+        alert('Não foi possível excluir: ' + err.message);
+      }
+      return;
+    }
+    if (!e.target.closest('[data-ri-csv]')) return;
     const [ano, mes] = riMes.split('-').map(Number);
-    const aulas = aulasDoAluno(a, `${riMes}-01`, isoDe(new Date(ano, mes, 0)));
+    const aulas = aulasDoAluno(a, `${riMes}-01`, isoDe(new Date(ano, mes, 0)), true);
     const csv = linhasIndividual(a, aulas).map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
     baixar(csv, `${(a.nome || 'aluno').replace(/[^\w]+/g, '-')}-${riMes}.csv`, 'text/csv');
   });
