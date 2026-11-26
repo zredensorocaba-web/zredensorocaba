@@ -115,6 +115,7 @@
       <button class="tab" data-tab="dashboard">📊 Início</button>
       <button class="tab" data-tab="alunos">👥 Alunos</button>
       <button class="tab" data-tab="faixas">🥋 Faixas</button>
+      <button class="tab" data-tab="regras">📖 Regras</button>
       <button class="tab" data-tab="presenca">✓ Presença</button>
       <button class="tab" data-tab="planejamento">📋 Planejamento</button>
       <button class="tab" data-tab="financeiro">💰 Financeiro</button>
@@ -197,11 +198,7 @@
           <h2 style="margin:0;">Acompanhamento de faixas</h2>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <input type="text" id="fx-busca" placeholder="Buscar por nome..." style="width:200px;">
-            <select id="fx-filtro" style="width:auto;">
-              <option value="">Todas as faixas</option>
-              <option value="branca">Branca</option><option value="azul">Azul</option>
-              <option value="roxa">Roxa</option><option value="marrom">Marrom</option><option value="preta">Preta</option>
-            </select>
+            <select id="fx-filtro" style="width:auto;"></select>
             <select id="fx-situacao" style="width:auto;">
               <option value="">Todas as situações</option>
               <option value="apto">Aptos para grau</option>
@@ -220,6 +217,37 @@
     </div>
 
     <!-- PRESENÇA -->
+    <div id="tab-regras" class="hidden">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+          <h2 style="margin:0;">📖 Regras de faixas e categorias (IBJJF)</h2>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="https://ibjjf.com/graduation-system" target="_blank" rel="noopener"><button type="button" class="sec">🔗 Sistema de graduação (site oficial)</button></a>
+            <button type="button" class="sec" id="rg-editar">✏️ Atualizar regras</button>
+          </div>
+        </div>
+        <p class="muted" id="rg-versao"></p>
+        <div id="rg-editor" class="hidden" style="margin:10px 0;">
+          <p class="muted">Edite o texto abaixo (formato JSON) com o que o site da IBJJF publicar e salve. Valores inválidos não são aceitos.</p>
+          <textarea id="rg-json" rows="16" style="width:100%; font-family:monospace; font-size:12px; padding:9px; border:1px solid #ccc; border-radius:6px;"></textarea>
+          <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" id="rg-salvar">💾 Salvar regras</button>
+            <button type="button" class="sec" id="rg-padrao">↩️ Restaurar padrão do sistema</button>
+            <button type="button" class="sec" id="rg-cancelar">Cancelar</button>
+          </div>
+          <div id="rg-msg"></div>
+        </div>
+        <h3>Categorias por idade</h3>
+        <div style="overflow-x:auto;"><table><thead><tr><th>Categoria</th><th>Idade</th><th>Faixas permitidas</th><th>Alunos</th></tr></thead><tbody id="rg-categorias"></tbody></table></div>
+        <h3 style="margin-top:20px;">Idade e tempo mínimos por faixa</h3>
+        <div style="overflow-x:auto;"><table><thead><tr><th>Faixa</th><th>Idade mínima</th><th>Tempo mínimo na faixa anterior</th></tr></thead><tbody id="rg-minimos"></tbody></table></div>
+        <h3 style="margin-top:20px;">Observações</h3>
+        <ul id="rg-notas"></ul>
+        <h3 style="margin-top:20px;">⚠️ Alunos fora da regra</h3>
+        <div id="rg-alertas"></div>
+      </div>
+    </div>
+
     <div id="tab-presenca" class="hidden">
       <div class="card">
         <div id="pr-sem-aula">
@@ -423,7 +451,9 @@
         </div>
         <label>Mensagem para o aluno ausente (WhatsApp)</label>
         <textarea id="cfg-msg-ausente" rows="3" style="width:100%; padding:9px; border:1px solid #ccc; border-radius:6px; font:inherit;"></textarea>
-        <p class="muted">Use: {nome} {academia} {dias}. Também alerta quando a frequência dos últimos 30 dias fica abaixo de 50%.</p>
+        <label>Mensagem para o responsável de aluno menor (WhatsApp)</label>
+        <textarea id="cfg-msg-ausente-resp" rows="3" style="width:100%; padding:9px; border:1px solid #ccc; border-radius:6px; font:inherit;"></textarea>
+        <p class="muted">Use: {nome} (aluno) {responsavel} {academia} {dias}. Também alerta quando a frequência dos últimos 30 dias fica abaixo de 50%.</p>
 
         <h2 style="margin-top:22px;">Identidade visual</h2>
         <div class="row">
@@ -446,6 +476,13 @@
           <div><label>Roxa</label><input type="number" id="req-roxa" min="1"></div>
           <div><label>Marrom</label><input type="number" id="req-marrom" min="1"></div>
           <div><label>Preta</label><input type="number" id="req-preta" min="1"></div>
+        </div>
+        <p class="muted" style="margin:10px 0 4px;">Faixas infantis (vale para todas as variações da cor, ex.: cinza e branca, cinza, cinza e preta)</p>
+        <div class="row">
+          <div><label>Cinza</label><input type="number" id="req-cinza" min="1"></div>
+          <div><label>Amarela</label><input type="number" id="req-amarela" min="1"></div>
+          <div><label>Laranja</label><input type="number" id="req-laranja" min="1"></div>
+          <div><label>Verde</label><input type="number" id="req-verde" min="1"></div>
         </div>
         <div style="margin-top:18px;"><button id="btn-salvar-config">💾 Salvar configurações</button> <button id="btn-backup" class="sec" style="margin-left:8px;">📦 Baixar backup (JSON)</button></div>
         <div id="cfg-msg"></div>
@@ -473,10 +510,7 @@
     <input type="text" id="a-nome" required>
     <div class="row">
       <div><label>Faixa</label>
-        <select id="a-faixa">
-          <option value="branca">Branca</option><option value="azul">Azul</option>
-          <option value="roxa">Roxa</option><option value="marrom">Marrom</option><option value="preta">Preta</option>
-        </select></div>
+        <select id="a-faixa"></select></div>
       <div><label>Plano</label>
         <select id="a-plano">
           <option value="1x">1x por semana</option><option value="2x">2x por semana</option>
@@ -490,6 +524,21 @@
     <div class="row">
       <div><label>Telefone / WhatsApp</label><input type="tel" id="a-tel"></div>
       <div><label>E-mail</label><input type="email" id="a-email"></div>
+    </div>
+    <div id="a-resp-box" style="border:1px solid #e0e0e0; border-radius:8px; padding:10px 12px; margin:10px 0; background:#fafafa;">
+      <label style="display:flex; gap:8px; align-items:center; margin:0; cursor:pointer;"><input type="checkbox" id="a-menor" style="width:auto;"> <strong>Aluno menor de idade (cadastrar responsável)</strong></label>
+      <div id="a-resp-campos" class="hidden" style="margin-top:8px;">
+        <div class="row">
+          <div><label>Nome do responsável</label><input type="text" id="a-resp-nome"></div>
+          <div><label>Parentesco</label>
+            <select id="a-resp-parent"><option>Mãe</option><option>Pai</option><option>Avó/Avô</option><option>Tio/Tia</option><option>Responsável legal</option><option>Outro</option></select></div>
+        </div>
+        <div class="row">
+          <div><label>WhatsApp do responsável</label><input type="tel" id="a-resp-tel"></div>
+          <div><label>E-mail do responsável</label><input type="email" id="a-resp-email"></div>
+        </div>
+        <small class="muted">Cobranças, avisos de ausência e parabéns serão enviados para o WhatsApp do responsável.</small>
+      </div>
     </div>
     <label>Dia de vencimento (opcional, deixe em branco para usar o padrão da academia)</label>
     <input type="number" id="a-venc" min="1" max="28" placeholder="Padrão da academia">
@@ -649,7 +698,7 @@
 
   let alunos = [];
   let turmas = [];
-  const REQUISITOS_PADRAO = { branca: 30, azul: 60, roxa: 100, marrom: 150, preta: 200 };
+  const REQUISITOS_PADRAO = { branca: 30, azul: 60, roxa: 100, marrom: 150, preta: 200, cinza: 30, amarela: 30, laranja: 40, verde: 40 };
   let config = { nome: 'Academia Jiu-Jitsu', planos: { ...PLANOS_PADRAO }, diaVencimento: 10, requisitos: { ...REQUISITOS_PADRAO } };
   let alunosCarregados = false, configCarregada = false, pagamentosCarregados = false;
   let logoTemp = null;
@@ -759,7 +808,7 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('ativa'));
       btn.classList.add('ativa');
-      ['recepcao','dashboard','alunos','faixas','presenca','planejamento','financeiro','relatorios','turmas','config'].forEach(t => {
+      ['recepcao','dashboard','alunos','faixas','regras','presenca','planejamento','financeiro','relatorios','turmas','config'].forEach(t => {
         $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
       });
       if (btn.dataset.tab === 'planejamento') renderPlanejamento(true);
@@ -797,8 +846,12 @@
       && (atual === 'todos' || (a.status || 'ativo') === atual));
     $('lista-alunos').innerHTML = lista.length ? lista.map(a => `
       <tr>
-        <td>${avatar(a)}<strong>${esc(a.nome)}</strong>${idadeDe(a.dataNascimento) != null ? ` <span class="muted">(${idadeDe(a.dataNascimento)} anos)</span>` : ''}</td>
-        <td>${capitalizar(a.faixa)}</td>
+        <td>${avatar(a)}<strong>${esc(a.nome)}</strong>${idadeDe(a.dataNascimento) != null ? ` <span class="muted">(${idadeDe(a.dataNascimento)} anos)</span>` : ''}${
+          a.responsavel ? `<br><small class="muted">👤 ${esc(a.responsavel.parentesco || 'Resp.')}: ${esc(a.responsavel.nome)}</small>`
+          : (idadeDe(a.dataNascimento) != null && idadeDe(a.dataNascimento) < 18 ? `<br><small style="color:#c0392b;">⚠️ menor sem responsável</small>` : '')}${
+          categoriaDe(a) ? `<br><small class="muted">🏆 ${esc(categoriaDe(a).nome)}</small>` : ''}${
+          avisosRegra(a).map(t => `<br><small style="color:#c0392b;">⚠️ ${esc(t)}</small>`).join('')}</td>
+        <td>${nomeFaixa(a.faixa)}</td>
         <td>${NOMES_PLANO[a.plano || '2x']}<br><span class="muted">${reais(valorDoAluno(a))}</span></td>
         <td><span class="badge b-${a.status || 'ativo'}">${capitalizar(a.status || 'ativo')}</span>${
           (a.status && a.status !== 'ativo')
@@ -826,6 +879,16 @@
       : '<p class="muted">Cadastre turmas primeiro.</p>';
   }
 
+  function atualizarRespCampos() {
+    $('a-resp-campos').classList.toggle('hidden', !$('a-menor').checked);
+  }
+  $('a-menor').addEventListener('change', atualizarRespCampos);
+  $('a-nasc').addEventListener('change', () => {
+    const i = idadeDe($('a-nasc').value);
+    if (i != null && i < 18) $('a-menor').checked = true;
+    atualizarRespCampos();
+  });
+
   function abrirModalAluno(id = null) {
     editandoAlunoId = id;
     fotoTemp = null;
@@ -838,6 +901,14 @@
     $('a-inicio').value = a?.dataInicio || hoje();
     $('a-nasc').value = a?.dataNascimento || '';
     $('a-tel').value = a?.telefone || '';
+    const r = a?.responsavel;
+    const idadeAtual = idadeDe(a?.dataNascimento);
+    $('a-menor').checked = !!r || (idadeAtual != null && idadeAtual < 18);
+    $('a-resp-nome').value = r?.nome || '';
+    $('a-resp-parent').value = r?.parentesco || 'Mãe';
+    $('a-resp-tel').value = r?.telefone || '';
+    $('a-resp-email').value = r?.email || '';
+    atualizarRespCampos();
     $('a-email').value = a?.email || '';
     $('a-valor-esp').value = a?.valorEspecifico ?? '';
     $('a-venc').value = a?.diaVencimento ?? '';
@@ -876,8 +947,14 @@
     e.preventDefault();
     const nome = $('a-nome').value.trim();
     if (!nome) return msg('a-msg', 'Informe o nome do aluno.');
+    const menor = $('a-menor').checked;
+    const respNome = $('a-resp-nome').value.trim();
+    const respTel = $('a-resp-tel').value.trim();
+    if (menor && !respNome) return msg('a-msg', 'Informe o nome do responsável (aluno menor de idade).');
+    if (menor && respTel.replace(/\D/g, '').length < 10) return msg('a-msg', 'Informe o WhatsApp do responsável com DDD.');
     const dados = {
       nome,
+      responsavel: menor ? { nome: respNome, parentesco: $('a-resp-parent').value, telefone: respTel, email: $('a-resp-email').value.trim() } : null,
       faixa: $('a-faixa').value,
       plano: $('a-plano').value,
       dataInicio: $('a-inicio').value,
@@ -1015,13 +1092,14 @@
     $('cfg-alerta-dias').value = config.alertaDias || 14;
     $('cfg-alerta-faltas').value = config.alertaFaltas || 3;
     $('cfg-msg-ausente').value = config.msgAusente || MSG_AUSENTE;
+    $('cfg-msg-ausente-resp').value = config.msgAusenteResp || MSG_AUSENTE_RESP;
     ['1x','2x','3x','livre'].forEach(p => { $('cfg-p-' + p).value = config.planos[p]; });
-    ['branca','azul','roxa','marrom','preta'].forEach(f => { $('req-' + f).value = config.requisitos[f]; });
+    Object.keys(REQUISITOS_PADRAO).forEach(f => { $('req-' + f).value = config.requisitos[f] ?? REQUISITOS_PADRAO[f]; });
   }
 
   $('btn-salvar-config').addEventListener('click', async () => {
     const requisitos = {};
-    ['branca','azul','roxa','marrom','preta'].forEach(f => {
+    Object.keys(REQUISITOS_PADRAO).forEach(f => {
       requisitos[f] = Math.max(1, parseInt($('req-' + f).value) || REQUISITOS_PADRAO[f]);
     });
     const planos = {};
@@ -1042,6 +1120,7 @@
         alertaDias: Math.max(3, Number($('cfg-alerta-dias').value) || 14),
         alertaFaltas: Math.max(2, Number($('cfg-alerta-faltas').value) || 3),
         msgAusente: $('cfg-msg-ausente').value.trim() || MSG_AUSENTE,
+        msgAusenteResp: $('cfg-msg-ausente-resp').value.trim() || MSG_AUSENTE_RESP,
         cor1: $('cfg-cor1').value,
         cor2: $('cfg-cor2').value,
         logo: logoTemp ?? config.logo ?? '',
@@ -1381,6 +1460,7 @@
     renderFinanceiro();
     renderGraduacao();
     renderFaixas();
+    renderRegras();
     renderAvisos();
     renderRetornos();
     renderAlertasAusencia();
@@ -1475,7 +1555,7 @@
   }
 
   function statusGraduacao(a) {
-    const req = config.requisitos[a.faixa] || 30;
+    const req = config.requisitos[reqKey(a.faixa)] || 30;
     const aulas = aulasDesdeGraduacao(a);
     return {
       aulas, req,
@@ -1497,7 +1577,7 @@
       <div style="display:flex; align-items:center; gap:12px; padding:10px; margin-bottom:8px; background:#f9f9f9; border-left:4px solid ${s.apto ? '#28a745' : '#ffc107'}; border-radius:6px;">
         ${avatar(a)}
         <div style="flex:1;">
-          <strong>${esc(a.nome)}</strong> · faixa ${capitalizar(a.faixa)}<br>
+          <strong>${esc(a.nome)}</strong> · faixa ${nomeFaixa(a.faixa)}<br>
           <small>${s.aulas}/${s.req} aulas ${s.apto ? '<b style="color:#28a745;">— apto para avaliação de grau</b>' : '(quase lá)'}</small>
           <div style="background:#e0e0e0; height:8px; border-radius:4px; margin-top:5px;">
             <div style="width:${s.pct}%; height:8px; border-radius:4px; background:${s.apto ? '#28a745' : '#ffc107'};"></div>
@@ -1520,15 +1600,41 @@
   async function subirFaixa(id) {
     const a = alunos.find(x => x.id === id);
     if (!a) return;
-    const i = CHAVE_FAIXAS.indexOf(a.faixa);
-    if (i === CHAVE_FAIXAS.length - 1) return alert('Este aluno já está na faixa preta.');
-    const nova = CHAVE_FAIXAS[i + 1];
-    if (!confirm(`Promover ${a.nome} para a faixa ${capitalizar(nova)}?`)) return;
+    const nova = proximaFaixa(a);
+    if (!nova) return alert('Este aluno já está na faixa preta.');
+    const av = avisosPromocao(a, nova);
+    if (!confirm(`Promover ${a.nome} para a faixa ${nomeFaixa(nova)}?` + (av.length ? `\n\n⚠️ Pela regra da IBJJF:\n- ${av.join('\n- ')}\n\nPromover mesmo assim?` : ''))) return;
     const historico = [...(a.historico_faixa || []), { faixa: nova, data: hoje() }];
     await setDoc(doc(db, 'alunos', id), { faixa: nova, historico_faixa: historico, dataUltimaGraduacao: hoje() }, { merge: true });
   }
 
-  const CHAVE_FAIXAS = ['branca', 'azul', 'roxa', 'marrom', 'preta'];
+  // Faixas: adulto + infantil (cor, cor e branca, cor e preta)
+  const FAIXAS_KIDS = ['cinza-branca','cinza','cinza-preta','amarela-branca','amarela','amarela-preta','laranja-branca','laranja','laranja-preta','verde-branca','verde','verde-preta'];
+  const FAIXAS_ADULTO = ['branca', 'azul', 'roxa', 'marrom', 'preta'];
+  const CHAVE_FAIXAS = ['branca', ...FAIXAS_KIDS, 'azul', 'roxa', 'marrom', 'preta'];
+  const reqKey = f => String(f || 'branca').split('-')[0];
+  const nomeFaixa = f => {
+    const [cor, det] = String(f || '').split('-');
+    return capitalizar(cor) + (det ? ' e ' + det : '');
+  };
+  const ehKids = f => FAIXAS_KIDS.includes(f);
+  function proximaFaixa(a) {
+    const f = a.faixa || 'branca';
+    const idade = idadeDe(a.dataNascimento);
+    if (f === 'branca') return (idade != null && idade < 16) ? 'cinza-branca' : 'azul';
+    if (f === 'verde-preta') return 'azul';
+    const i = CHAVE_FAIXAS.indexOf(f);
+    return i >= 0 && i < CHAVE_FAIXAS.length - 1 ? CHAVE_FAIXAS[i + 1] : null;
+  }
+  function preencherSelectFaixas(sel, comTodas) {
+    const o = f => `<option value="${f}">${nomeFaixa(f)}</option>`;
+    sel.innerHTML = (comTodas ? '<option value="">Todas as faixas</option>' : '')
+      + `<optgroup label="Adulto">${o('branca')}</optgroup>`
+      + `<optgroup label="Infantil">${FAIXAS_KIDS.map(o).join('')}</optgroup>`
+      + `<optgroup label="Adulto (azul em diante)">${['azul','roxa','marrom','preta'].map(o).join('')}</optgroup>`;
+  }
+  preencherSelectFaixas($('a-faixa'), false);
+  preencherSelectFaixas($('fx-filtro'), true);
 
   $('lista-alunos').addEventListener('click', async e => {
     const g = e.target.closest('[data-grau]');
@@ -1634,16 +1740,29 @@
     if (b) abrirModalStatus(b.dataset.statusAluno);
   });
 
+  // Quem recebe as mensagens: o responsável (se aluno menor) ou o próprio aluno
+  function contatoDe(a) {
+    const r = a.responsavel;
+    if (r && String(r.telefone || '').replace(/\D/g, '').length >= 10) {
+      return { tel: r.telefone, resp: true, respNome: (r.nome || '').split(' ')[0] };
+    }
+    return { tel: a.telefone, resp: false, respNome: '' };
+  }
+  const MSG_ANIV_RESP = 'Olá {responsavel}! 🎉 Passando para dar os parabéns ao {nome} pelo aniversário! Um abraço de toda a equipe da {academia}! 🥋';
+  const MSG_ANIV_ACAD_RESP = 'Olá {responsavel}! 🥋 O {nome} completa {anos} de academia com a gente. Obrigado pela confiança e parceria! Oss!';
+  const MSG_AUSENTE_RESP = 'Olá {responsavel}, tudo bem? Aqui é da {academia}. Sentimos falta do {nome} nos treinos! Está tudo certo? Quando ele(a) quiser voltar, a gente espera. 🥋';
+
   // ---------- Avisos de cobrança (WhatsApp) ----------
   const dataBR = iso => iso ? iso.split('-').reverse().join('/') : '';
 
   function montarMensagem(p, a) {
     const atrasado = statusEfetivo(p) === 'atrasado';
+    const c = contatoDe(a);
     const modelo = config.msgCobranca || MSG_PADRAO;
     const valores = {
-      nome: (a.nome || '').split(' ')[0],
+      nome: c.resp ? c.respNome : (a.nome || '').split(' ')[0],
       academia: config.nome,
-      descricao: p.avulso ? p.descricao : 'mensalidade',
+      descricao: (p.avulso ? p.descricao : 'mensalidade') + (c.resp ? ` de ${(a.nome || '').split(' ')[0]}` : ''),
       valor: reais(p.valor),
       situacao: atrasado ? 'venceu em' : 'vence em',
       vencimento: dataBR(p.vencimento),
@@ -1656,7 +1775,7 @@
     const p = pagamentos.find(x => x.id === pagId);
     const a = p && alunos.find(x => x.id === p.alunoId);
     if (!a) return;
-    let tel = String(a.telefone || '').replace(/\D/g, '');
+    let tel = String(contatoDe(a).tel || '').replace(/\D/g, '');
     if (tel.length < 10) return alert(`${a.nome} não tem telefone cadastrado. Edite o aluno e preencha o WhatsApp.`);
     if (tel.length <= 11) tel = '55' + tel;
     window.open(`https://wa.me/${tel}?text=${encodeURIComponent(montarMensagem(p, a))}`, '_blank');
@@ -1765,7 +1884,7 @@
         ? `🎂 Faz <b>${anos} anos</b>`
         : `🥋 Completa <b>${anos} ${anos === 1 ? 'ano' : 'anos'} de academia</b>`;
       const cor = dias === 0 ? '#28a745' : dias < 0 ? '#adb5bd' : '#ffc107';
-      const botao = (dias <= 0 && a.telefone)
+      const botao = (dias <= 0 && contatoDe(a).tel)
         ? `<button class="sm" data-parabens="${a.id}" data-tipo="${tipo}">🎉 Parabenizar</button>` : '';
       return `
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px; margin-bottom:8px; background:${dias === 0 ? '#eefaf0' : '#f9f9f9'}; border-left:4px solid ${cor}; border-radius:6px;">
@@ -1786,17 +1905,21 @@
     if (!b) return;
     const a = alunos.find(x => x.id === b.dataset.parabens);
     if (!a) return;
-    let tel = String(a.telefone || '').replace(/\D/g, '');
+    const c = contatoDe(a);
+    let tel = String(c.tel || '').replace(/\D/g, '');
     if (tel.length < 10) return alert(`${a.nome} não tem telefone cadastrado.`);
     if (tel.length <= 11) tel = '55' + tel;
     const nome = (a.nome || '').split(' ')[0];
     const info = proximoAniv(b.dataset.tipo === 'idade' ? a.dataNascimento : a.dataInicio);
     const anos = info ? info.anos : '';
-    const modelo = b.dataset.tipo === 'idade'
-      ? (config.msgAnivIdade || MSG_ANIV_IDADE)
-      : (config.msgAnivAcademia || MSG_ANIV_ACADEMIA);
+    const modelo = c.resp
+      ? (b.dataset.tipo === 'idade' ? MSG_ANIV_RESP : MSG_ANIV_ACAD_RESP)
+      : b.dataset.tipo === 'idade'
+        ? (config.msgAnivIdade || MSG_ANIV_IDADE)
+        : (config.msgAnivAcademia || MSG_ANIV_ACADEMIA);
     const valores = {
       nome,
+      responsavel: c.respNome,
       academia: config.nome,
       anos: b.dataset.tipo === 'idade' ? `${anos} anos` : `${anos} ${anos === 1 ? 'ano' : 'anos'}`
     };
@@ -1808,7 +1931,148 @@
   setInterval(renderAniversarios, 3600000);
 
   // ---------- Aba Faixas ----------
-  const CORES_FAIXA = { branca: '#e9ecef', azul: '#1e63d6', roxa: '#7b2cbf', marrom: '#7b4a2b', preta: '#222' };
+  const CORES_FAIXA = { branca: '#e9ecef', azul: '#1e63d6', roxa: '#7b2cbf', marrom: '#7b4a2b', preta: '#222',
+    cinza: '#9aa0a6', amarela: '#f5c518', laranja: '#f28c28', verde: '#2e9e4f' };
+  // Fundo da faixa: infantil "cor e branca/preta" ganha a listra central
+  function faixaFundo(f) {
+    const [cor, det] = String(f || '').split('-');
+    const c = CORES_FAIXA[cor] || '#ccc';
+    if (!det) return c;
+    const l = det === 'preta' ? '#111' : '#fff';
+    return `linear-gradient(90deg, ${c} 0 38%, ${l} 38% 62%, ${c} 62% 100%)`;
+  }
+  const textoSobreFaixa = f => ['branca', 'amarela', 'cinza'].includes(String(f).split('-')[0]) && !String(f).includes('-preta') ? '#222' : '#fff';
+  const faixasVisiveis = lista => CHAVE_FAIXAS.filter(f => !ehKids(f) || lista.some(a => a.faixa === f));
+
+
+  // ---------- Regras IBJJF (categorias, idade e tempo mínimos) ----------
+  // Valores padrão do sistema. O dono pode atualizar na aba Regras (fica salvo em config/geral).
+  const REGRAS_IBJJF_PADRAO = {
+    versao: '2026-11-26',
+    fonte: 'IBJJF – Graduation System e Livro de Regras (ibjjf.com/graduation-system)',
+    categorias: [
+      { nome: 'Pré-Mirim (Mighty Mite)', de: 4, ate: 6, faixas: ['branca', 'cinza'] },
+      { nome: 'Mirim (Pee-Wee)', de: 7, ate: 9, faixas: ['branca', 'cinza', 'amarela'] },
+      { nome: 'Infantil (Junior)', de: 10, ate: 12, faixas: ['branca', 'cinza', 'amarela', 'laranja'] },
+      { nome: 'Infanto-Juvenil (Teen)', de: 13, ate: 15, faixas: ['branca', 'cinza', 'amarela', 'laranja', 'verde'] },
+      { nome: 'Juvenil', de: 16, ate: 17, faixas: ['branca', 'azul', 'roxa'] },
+      { nome: 'Adulto', de: 18, ate: 29, faixas: ['branca', 'azul', 'roxa', 'marrom', 'preta'] },
+      { nome: 'Master 1', de: 30, ate: 35, faixas: ['branca', 'azul', 'roxa', 'marrom', 'preta'] },
+      { nome: 'Master 2', de: 36, ate: 40, faixas: ['branca', 'azul', 'roxa', 'marrom', 'preta'] },
+      { nome: 'Master 3', de: 41, ate: 45, faixas: ['branca', 'azul', 'roxa', 'marrom', 'preta'] },
+      { nome: 'Master 4', de: 46, ate: 50, faixas: ['branca', 'azul', 'roxa', 'marrom', 'preta'] },
+      { nome: 'Master 5', de: 51, ate: 55, faixas: ['branca', 'azul', 'roxa', 'marrom', 'preta'] },
+      { nome: 'Master 6', de: 56, ate: 60, faixas: ['azul', 'roxa', 'marrom', 'preta'] },
+      { nome: 'Master 7', de: 61, ate: 999, faixas: ['azul', 'roxa', 'marrom', 'preta'] }
+    ],
+    minimos: {
+      cinza: { idade: 4 }, amarela: { idade: 7 }, laranja: { idade: 10 }, verde: { idade: 13 },
+      azul: { idade: 16 },
+      roxa: { idade: 16, meses: 24, de: 'azul' },
+      marrom: { idade: 18, meses: 18, de: 'roxa' },
+      preta: { idade: 19, meses: 12, de: 'marrom' }
+    },
+    notas: [
+      'Faixas infantis (cinza, amarela, laranja, verde) são para 4 a 15 anos. A partir dos 16 anos o aluno fica elegível à faixa azul e entra no sistema adulto.',
+      'A categoria é calculada pelo ano de nascimento (idade que o atleta faz no ano). Confira o regulamento de cada campeonato.',
+      'Faixa preta: 1º grau após 3 anos de atividade comprovada como faixa preta.',
+      'Graus infantis (sistemas sugeridos pela IBJJF): Mensal (11 graus por faixa), Quadrimestral (2 graus por faixa) e Trimestral (3 graus por faixa).',
+      'Faixas azul, roxa e marrom adultas (18+) campeãs mundiais não têm mais tempo mínimo na faixa.',
+      'A partir de 2027 a IBJJF cria o Master 8 (66+); o Master 7 passa a ser de 61 a 65 anos. Atualize a tabela quando isso entrar em vigor.',
+      'Estes valores são um resumo para apoio. A regra oficial vale sempre; use o botão acima para conferir no site da IBJJF.'
+    ]
+  };
+  const regrasIBJJF = () => (config.regrasIbjjf && Array.isArray(config.regrasIbjjf.categorias) && config.regrasIbjjf.minimos) ? config.regrasIbjjf : REGRAS_IBJJF_PADRAO;
+  const baseFaixa = f => String(f || 'branca').split('-')[0];
+  const nomeBase = b => capitalizar(b);
+
+  function idadeIBJJF(iso) {
+    if (!iso) return null;
+    const ano = parseInt(String(iso).slice(0, 4));
+    return ano ? new Date().getFullYear() - ano : null;
+  }
+  function categoriaDe(a) {
+    const idade = idadeIBJJF(a.dataNascimento);
+    if (idade == null) return null;
+    return regrasIBJJF().categorias.find(c => idade >= c.de && idade <= c.ate) || null;
+  }
+  function avisosRegra(a) {
+    const idade = idadeIBJJF(a.dataNascimento);
+    const cat = categoriaDe(a);
+    const out = [];
+    if (idade == null) return out;
+    if (!cat) { if (idade < 4) out.push(`${idade} anos: abaixo da idade mínima das categorias (4 anos)`); return out; }
+    if (!cat.faixas.includes(baseFaixa(a.faixa))) out.push(`Faixa ${nomeFaixa(a.faixa)} não é permitida na categoria ${cat.nome}`);
+    return out;
+  }
+  function mesesNaFaixa(a) {
+    const entrada = [...(a.historico_faixa || [])].reverse().find(h => h.faixa === a.faixa);
+    const inicio = entrada?.data || a.dataInicio;
+    if (!inicio) return null;
+    return Math.floor(Math.max(0, (new Date(hoje()) - new Date(inicio)) / 86400000) / 30.4);
+  }
+  // Alertas ao promover para a faixa "nova" (não bloqueiam, só avisam)
+  function avisosPromocao(a, nova) {
+    const m = regrasIBJJF().minimos[baseFaixa(nova)];
+    const out = [];
+    if (!m) return out;
+    const idade = idadeDe(a.dataNascimento);
+    if (idade != null && m.idade != null && idade < m.idade) out.push(`${a.nome} tem ${idade} anos e a idade mínima para a faixa ${nomeFaixa(nova)} é ${m.idade}`);
+    if (m.meses && m.de && baseFaixa(a.faixa) === m.de) {
+      const t = mesesNaFaixa(a);
+      if (t != null && t < m.meses) out.push(`está há ${t} meses na faixa ${nomeFaixa(a.faixa)} e o mínimo é ${m.meses} meses`);
+    }
+    return out;
+  }
+
+  function renderRegras() {
+    if (!$('rg-categorias')) return;
+    const r = regrasIBJJF();
+    const ativos = alunos.filter(a => (a.status || 'ativo') === 'ativo');
+    $('rg-versao').innerHTML = `Versão das regras: <b>${esc(r.versao || '-')}</b>${config.regrasIbjjf ? ' (personalizada)' : ' (padrão do sistema)'} · Fonte: ${esc(r.fonte || '')}`;
+    const chip = b => `<span style="display:inline-block; width:14px; height:8px; border-radius:2px; background:${faixaFundo(b)}; border:1px solid #999; margin-right:3px;"></span>${nomeBase(b)}`;
+    $('rg-categorias').innerHTML = r.categorias.map(c => `<tr>
+      <td><strong>${esc(c.nome)}</strong></td>
+      <td>${c.ate >= 999 ? c.de + '+' : c.de + ' a ' + c.ate} anos</td>
+      <td>${c.faixas.map(chip).join(' &nbsp; ')}</td>
+      <td>${ativos.filter(a => categoriaDe(a) === c || (categoriaDe(a) && categoriaDe(a).nome === c.nome)).length}</td></tr>`).join('');
+    $('rg-minimos').innerHTML = Object.entries(r.minimos).map(([b, m]) => `<tr>
+      <td>${chip(b)}</td><td>${m.idade != null ? m.idade + ' anos' : '-'}</td>
+      <td>${m.meses ? `${m.meses} meses (${(m.meses / 12).toString().replace('.', ',')} ano${m.meses > 12 ? 's' : ''}) como faixa ${nomeBase(m.de)}` : '-'}</td></tr>`).join('');
+    $('rg-notas').innerHTML = (r.notas || []).map(n => `<li style="margin-bottom:4px;">${esc(n)}</li>`).join('');
+    const prob = ativos.map(a => ({ a, av: avisosRegra(a) })).filter(x => x.av.length);
+    const semNasc = ativos.filter(a => !a.dataNascimento).length;
+    $('rg-alertas').innerHTML = (prob.length ? '<ul>' + prob.map(({ a, av }) => `<li><b>${esc(a.nome)}</b> (${idadeIBJJF(a.dataNascimento)} anos): ${esc(av.join('; '))}</li>`).join('') + '</ul>'
+      : '<p class="muted">Nenhum aluno com faixa incompatível com a categoria. ✅</p>')
+      + (semNasc ? `<p class="muted">${semNasc} aluno(s) sem data de nascimento não foram verificados.</p>` : '');
+  }
+
+  $('rg-editar').addEventListener('click', () => {
+    $('rg-json').value = JSON.stringify(regrasIBJJF(), null, 2);
+    msg('rg-msg', '');
+    $('rg-editor').classList.remove('hidden');
+  });
+  $('rg-cancelar').addEventListener('click', () => $('rg-editor').classList.add('hidden'));
+  $('rg-salvar').addEventListener('click', async () => {
+    let obj;
+    try { obj = JSON.parse($('rg-json').value); } catch (e) { return msg('rg-msg', 'Texto inválido: ' + e.message); }
+    const okCat = Array.isArray(obj.categorias) && obj.categorias.length && obj.categorias.every(c => c.nome && Number.isFinite(c.de) && Number.isFinite(c.ate) && Array.isArray(c.faixas));
+    if (!okCat || !obj.minimos || typeof obj.minimos !== 'object') return msg('rg-msg', 'Formato inválido: precisa de "categorias" (nome, de, ate, faixas) e "minimos".');
+    obj.versao = obj.versao || hoje();
+    try {
+      await setDoc(doc(db, 'config', 'geral'), { regrasIbjjf: obj }, { merge: true });
+      $('rg-editor').classList.add('hidden');
+    } catch (e) { msg('rg-msg', 'Não foi possível salvar: ' + e.message); }
+  });
+  $('rg-padrao').addEventListener('click', async () => {
+    if (!confirm('Voltar para as regras padrão do sistema? Suas alterações serão descartadas.')) return;
+    try {
+      await setDoc(doc(db, 'config', 'geral'), { regrasIbjjf: null }, { merge: true });
+      config.regrasIbjjf = null;
+      $('rg-editor').classList.add('hidden');
+      renderRegras(); renderAlunos();
+    } catch (e) { msg('rg-msg', 'Não foi possível restaurar: ' + e.message); }
+  });
 
   function tempoNaFaixa(a) {
     const entrada = [...(a.historico_faixa || [])].reverse().find(h => h.faixa === a.faixa);
@@ -1823,18 +2087,17 @@
   }
 
   function faixaVisual(f) {
-    const cor = CORES_FAIXA[f] || '#ccc';
-    return `<span style="display:inline-block; width:46px; height:12px; border-radius:3px; background:${cor}; border:1px solid #999; vertical-align:middle; margin-right:6px;"></span>${capitalizar(f)}`;
+    return `<span style="display:inline-block; width:46px; height:12px; border-radius:3px; background:${faixaFundo(f)}; border:1px solid #999; vertical-align:middle; margin-right:6px;"></span>${nomeFaixa(f)}`;
   }
 
   function renderFaixas() {
     if (!$('fx-tabela')) return;
     const ativos = alunos.filter(a => a.status === 'ativo');
 
-    $('fx-resumo').innerHTML = CHAVE_FAIXAS.map(f => {
+    $('fx-resumo').innerHTML = faixasVisiveis(ativos).map(f => {
       const n = ativos.filter(a => a.faixa === f).length;
-      return `<div class="stat" style="background-image:none; background:${CORES_FAIXA[f]}; color:${f === 'branca' ? '#222' : '#fff'};">
-        <small>${capitalizar(f)}</small><div>${n}</div></div>`;
+      return `<div class="stat" style="background-image:none; background:${faixaFundo(f)}; color:${textoSobreFaixa(f)};">
+        <small>${nomeFaixa(f)}</small><div>${n}</div></div>`;
     }).join('');
 
     const busca = $('fx-busca').value.trim().toLowerCase();
@@ -2010,12 +2273,12 @@
     const mesDe = mesAtual() + '-01';
     const ativos = alunos.filter(a => a.status === 'ativo');
 
-    $('rel-frequencia').innerHTML = CHAVE_FAIXAS.map(f => {
+    $('rel-frequencia').innerHTML = faixasVisiveis(ativos).map(f => {
       const grupo = ativos.filter(a => a.faixa === f);
       const semana = grupo.reduce((s, a) => s + aulasNoPeriodo(a.id, semanaDe, ate), 0);
       const mes = grupo.reduce((s, a) => s + aulasNoPeriodo(a.id, mesDe, ate), 0);
       const media = grupo.length ? (mes / grupo.length).toFixed(1) : '-';
-      return `<tr><td><strong>${capitalizar(f)}</strong></td><td>${grupo.length}</td><td>${semana}</td><td>${mes}</td><td>${media}</td></tr>`;
+      return `<tr><td><strong>${nomeFaixa(f)}</strong></td><td>${grupo.length}</td><td>${semana}</td><td>${mes}</td><td>${media}</td></tr>`;
     }).join('');
 
     const meses = [];
@@ -2032,7 +2295,7 @@
       const faltas = aulasDoAluno(a, mesDe, ate).filter(x => !x.presente).length;
       const ult = ultimaPresenca(a);
       return `
-      <tr><td>${esc(a.nome)}${(a.status || 'ativo') !== 'ativo' ? ` <span class="muted">(${esc(a.status)})</span>` : ''}</td><td>${capitalizar(a.faixa)}</td><td>${NOMES_PLANO[a.plano || '2x']}</td>
+      <tr><td>${esc(a.nome)}${(a.status || 'ativo') !== 'ativo' ? ` <span class="muted">(${esc(a.status)})</span>` : ''}</td><td>${nomeFaixa(a.faixa)}</td><td>${NOMES_PLANO[a.plano || '2x']}</td>
       <td>${aulasNoPeriodo(a.id, mesDe, ate)}</td>
       <td>${faltas ? `<b style="color:#721c24;">${faltas}</b>` : 0}</td>
       <td>${ult ? `${dataCurta(ult)} <span class="muted">(${haDias(ult)})</span>` : '<span class="muted">nunca</span>'}</td>
@@ -2054,9 +2317,9 @@
   $('btn-csv').addEventListener('click', () => {
     const ate = dataLocal(new Date());
     const mesDe = mesAtual() + '-01';
-    const linhas = [['Aluno', 'Faixa', 'Plano', 'Aulas no mês', 'Faltas no mês', 'Última aula', 'Graus na faixa']];
+    const linhas = [['Aluno', 'Faixa', 'Responsável', 'Plano', 'Aulas no mês', 'Faltas no mês', 'Última aula', 'Graus na faixa']];
     alunos.forEach(a => linhas.push([
-      a.nome, capitalizar(a.faixa), NOMES_PLANO[a.plano || '2x'],
+      a.nome, nomeFaixa(a.faixa), a.responsavel ? `${a.responsavel.nome} (${a.responsavel.parentesco || ''})` : '', NOMES_PLANO[a.plano || '2x'],
       aulasNoPeriodo(a.id, mesDe, ate),
       aulasDoAluno(a, mesDe, ate).filter(x => !x.presente).length,
       ultimaPresenca(a) ? dataBR(ultimaPresenca(a)) : 'nunca',
@@ -2085,13 +2348,13 @@
     const a = alunos.find(x => x.id === alunoGraus);
     if (!a) return;
     let html = `<div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-      ${avatar(a)}<div><strong>${esc(a.nome)}</strong><br><small class="muted">Faixa atual: ${capitalizar(a.faixa)}</small></div></div>`;
+      ${avatar(a)}<div><strong>${esc(a.nome)}</strong><br><small class="muted">Faixa atual: ${nomeFaixa(a.faixa)}</small></div></div>`;
 
     CHAVE_FAIXAS.forEach(f => {
       const graus = (a.graus || []).filter(g => g.faixa === f).sort((x, y) => x.grau - y.grau);
       const entrada = (a.historico_faixa || []).find(h => h.faixa === f);
       if (!graus.length && !entrada) return;
-      html += `<h4 style="margin:12px 0 4px;">Faixa ${capitalizar(f)}
+      html += `<h4 style="margin:12px 0 4px;">Faixa ${nomeFaixa(f)}
         ${entrada ? `<small class="muted">(desde ${esc(entrada.data)})</small>` : ''}</h4>`;
       html += graus.length
         ? '<ul>' + graus.map(g => `<li style="margin-bottom:4px;">${g.grau}º grau · ${esc(g.data)}
@@ -2143,7 +2406,7 @@
   });
 
   // ---------- Recepção e área do dono ----------
-  const TABS_RESTRITAS = ['dashboard', 'alunos', 'faixas', 'planejamento', 'financeiro', 'relatorios', 'turmas', 'config'];
+  const TABS_RESTRITAS = ['dashboard', 'alunos', 'faixas', 'regras', 'planejamento', 'financeiro', 'relatorios', 'turmas', 'config'];
   let areaDonoLiberada = false;
 
   function irPara(tab) {
@@ -2953,7 +3216,7 @@
   const mudarMes = (ym, n) => { const [y, m] = ym.split('-').map(Number); return isoDe(new Date(y, m - 1 + n, 1)).slice(0, 7); };
 
   function abrirWhatsApp(a, texto) {
-    let tel = String(a.telefone || '').replace(/\D/g, '');
+    let tel = String(contatoDe(a).tel || '').replace(/\D/g, '');
     if (tel.length < 10) return alert(`${a.nome} não tem telefone cadastrado. Edite o aluno e preencha o WhatsApp.`);
     if (tel.length <= 11) tel = '55' + tel;
     window.open(`https://wa.me/${tel}?text=${encodeURIComponent(texto)}`, '_blank');
@@ -3050,7 +3313,7 @@
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px; margin-bottom:8px; background:#f9f9f9; border-left:4px solid ${grave ? '#dc3545' : '#ffc107'}; border-radius:6px;">
         ${avatar(a)}
         <div style="flex:1; min-width:180px;">
-          <strong>${esc(a.nome)}</strong> <span class="muted">· ${capitalizar(a.faixa)}</span><br>
+          <strong>${esc(a.nome)}</strong> <span class="muted">· ${nomeFaixa(a.faixa)}</span><br>
           <small>${motivos.map(esc).join(' · ')}</small><br>
           <small class="muted">Última aula: ${r.ultima ? `${dataBR(r.ultima)} (${haDias(r.ultima)})` : 'nenhuma registrada'}</small>
         </div>
@@ -3073,8 +3336,9 @@
         case 'whats': {
           if (!a) return;
           const r = resumoAusencia(a);
-          const modelo = config.msgAusente || MSG_AUSENTE;
-          const valores = { nome: (a.nome || '').split(' ')[0], academia: config.nome, dias: r.dias != null ? `${r.dias} dias` : '' };
+          const c = contatoDe(a);
+          const modelo = c.resp ? (config.msgAusenteResp || MSG_AUSENTE_RESP) : (config.msgAusente || MSG_AUSENTE);
+          const valores = { nome: (a.nome || '').split(' ')[0], responsavel: c.respNome, academia: config.nome, dias: r.dias != null ? `${r.dias} dias` : '' };
           abrirWhatsApp(a, modelo.replace(/\{(\w+)\}/g, (m, k) => (k in valores ? valores[k] : m)));
           break;
         }
