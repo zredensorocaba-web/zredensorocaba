@@ -237,6 +237,11 @@
           </div>
           <div id="rg-msg"></div>
         </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin:12px 0;">
+          <button type="button" id="rg-sw-grad">🥋 Graduação e categorias</button>
+          <button type="button" class="sec" id="rg-sw-luta">⚔️ Regras de luta</button>
+        </div>
+        <div id="rg-sec-grad">
         <h3>Categorias por idade</h3>
         <div style="overflow-x:auto;"><table><thead><tr><th>Categoria</th><th>Idade</th><th>Faixas permitidas</th><th>Alunos</th></tr></thead><tbody id="rg-categorias"></tbody></table></div>
         <h3 style="margin-top:20px;">Idade e tempo mínimos por faixa</h3>
@@ -245,6 +250,21 @@
         <ul id="rg-notas"></ul>
         <h3 style="margin-top:20px;">⚠️ Alunos fora da regra</h3>
         <div id="rg-alertas"></div>
+        </div>
+        <div id="rg-sec-luta" class="hidden">
+          <h3>⏱️ Tempo de luta</h3>
+          <div style="overflow-x:auto;"><table><thead><tr><th>Categoria</th><th>Idade</th><th>Tempo</th><th>Obs.</th></tr></thead><tbody id="rg-tempos"></tbody></table></div>
+          <h3 style="margin-top:20px;">🎯 Pontuação</h3>
+          <div style="overflow-x:auto;"><table><thead><tr><th>Ação</th><th>Pontos</th></tr></thead><tbody id="rg-pontos"></tbody></table></div>
+          <ul id="rg-pontos-notas" style="margin-top:8px;"></ul>
+          <h3 style="margin-top:20px;">🚫 Golpes permitidos e proibidos</h3>
+          <p class="muted">✅ permitido · ❌ proibido · 🟡 permitido só no No-Gi</p>
+          <div style="overflow-x:auto;"><table><thead id="rg-golpes-cab"></thead><tbody id="rg-golpes"></tbody></table></div>
+          <h3 style="margin-top:20px;">🟨 Faltas e punições</h3>
+          <ul id="rg-faltas"></ul>
+          <h3 style="margin-top:20px;">Observações</h3>
+          <ul id="rg-luta-notas"></ul>
+        </div>
       </div>
     </div>
 
@@ -849,7 +869,7 @@
         <td>${avatar(a)}<strong>${esc(a.nome)}</strong>${idadeDe(a.dataNascimento) != null ? ` <span class="muted">(${idadeDe(a.dataNascimento)} anos)</span>` : ''}${
           a.responsavel ? `<br><small class="muted">👤 ${esc(a.responsavel.parentesco || 'Resp.')}: ${esc(a.responsavel.nome)}</small>`
           : (idadeDe(a.dataNascimento) != null && idadeDe(a.dataNascimento) < 18 ? `<br><small style="color:#c0392b;">⚠️ menor sem responsável</small>` : '')}${
-          categoriaDe(a) ? `<br><small class="muted">🏆 ${esc(categoriaDe(a).nome)}</small>` : ''}${
+          categoriaDe(a) ? `<br><small class="muted">🏆 ${esc(categoriaDe(a).nome)}${tempoDeLuta(a) ? ` · ⏱️ luta de ${tempoDeLuta(a).min} min` : ''}</small>` : ''}${
           avisosRegra(a).map(t => `<br><small style="color:#c0392b;">⚠️ ${esc(t)}</small>`).join('')}</td>
         <td>${nomeFaixa(a.faixa)}</td>
         <td>${NOMES_PLANO[a.plano || '2x']}<br><span class="muted">${reais(valorDoAluno(a))}</span></td>
@@ -2025,8 +2045,108 @@
     return out;
   }
 
+
+  const LUTA_PADRAO = {
+    tempos: [
+      { nome: 'Pré-Mirim', de: 4, ate: 6, min: 2 },
+      { nome: 'Mirim', de: 7, ate: 9, min: 3 },
+      { nome: 'Infantil', de: 10, ate: 12, min: 4 },
+      { nome: 'Infanto-Juvenil', de: 13, ate: 15, min: 4 },
+      { nome: 'Juvenil', de: 16, ate: 17, min: 5 },
+      { nome: 'Adulto', de: 18, ate: 29, min: { branca: 5, azul: 6, roxa: 7, marrom: 8, preta: 10 }, obs: 'Finais: branca e azul 5 min; roxa, marrom e preta 6 min. Descanso igual ao tempo da luta (dobro nas finais).' },
+      { nome: 'Master 1', de: 30, ate: 35, min: { branca: 5, azul: 5, roxa: 6, marrom: 6, preta: 6 }, obs: 'Confira no livro de regras do ano.' },
+      { nome: 'Master 2 a 7', de: 36, ate: 999, min: 5, obs: 'Confira no livro de regras do ano.' }
+    ],
+    pontos: [
+      { acao: 'Queda', pts: '2' }, { acao: 'Raspagem', pts: '2' }, { acao: 'Joelho na barriga', pts: '2' },
+      { acao: 'Passagem de guarda', pts: '3' }, { acao: 'Montada', pts: '4' }, { acao: 'Pegada pelas costas', pts: '4' }
+    ],
+    pontosNotas: [
+      'A posição precisa ser estabilizada por 3 segundos para pontuar. Pontos de posições encadeadas se somam (ex.: passagem + montada = 7).',
+      'Vantagem: quando o atleta chega perto de uma posição de pontuação ou faz uma finalização com risco real, sem completar. Serve de desempate depois dos pontos.',
+      'Desempate: pontos, depois vantagens, depois punições e, por último, decisão do árbitro.'
+    ],
+    grupos: ['Kids 4-15', 'Juvenil 16-17', 'Branca (adulto)', 'Azul e Roxa', 'Marrom e Preta'],
+    golpes: [
+      { golpe: 'Compressão de rins/costelas com as pernas na guarda fechada', v: ['x', 'x', 'x', 'ok', 'ok'] },
+      { golpe: 'Mão de vaca (chave de punho)', v: ['x', 'x', 'x', 'ok', 'ok'] },
+      { golpe: 'Single leg com a cabeça por fora', v: ['x', 'x', 'x', 'ok', 'ok'], obs: 'Proibido, mas o atleta não é punido.' },
+      { golpe: 'Chave de bíceps e chave de panturrilha', v: ['x', 'x', 'x', 'x', 'ok'] },
+      { golpe: 'Chave de joelho reta (kneebar)', v: ['x', 'x', 'x', 'x', 'ok'] },
+      { golpe: 'Mata-leão no pé (toe hold)', v: ['x', 'x', 'x', 'x', 'ok'] },
+      { golpe: 'Chave de pé reta', v: ['x', 'ok', 'ok', 'ok', 'ok'] },
+      { golpe: 'Chave de pé reta girando para o lado do pé não atacado', v: ['x', 'x', 'x', 'x', 'ok'] },
+      { golpe: 'Chave de calcanhar', v: ['x', 'x', 'x', 'x', 'nogi'] },
+      { golpe: 'Chave com torção do joelho', v: ['x', 'x', 'x', 'x', 'nogi'] },
+      { golpe: 'Cruzada de perna (knee reaping)', v: ['x', 'x', 'x', 'x', 'nogi'] },
+      { golpe: 'Finalização que força a abertura das pernas', v: ['x', 'ok', 'ok', 'ok', 'ok'], obs: 'Proibida de 4 a 12 anos.' },
+      { golpe: 'Chave cervical com estrangulamento', v: ['x', 'ok', 'ok', 'ok', 'ok'] },
+      { golpe: 'Ezequiel usando a manga', v: ['x', 'ok', 'ok', 'ok', 'ok'] },
+      { golpe: 'Guilhotina frontal', v: ['x', 'ok', 'ok', 'ok', 'ok'] },
+      { golpe: 'Omoplata', v: ['x', 'ok', 'ok', 'ok', 'ok'] },
+      { golpe: 'Triângulo puxando a cabeça', v: ['x', 'ok', 'ok', 'ok', 'ok'] },
+      { golpe: 'Katagatame', v: ['x', 'ok', 'ok', 'ok', 'ok'] },
+      { golpe: 'Toe hold com pressão do pé para fora', v: ['x', 'x', 'x', 'x', 'x'] },
+      { golpe: 'Bate-estaca (slam)', v: ['x', 'x', 'x', 'x', 'x'] },
+      { golpe: 'Chave cervical sem estrangulamento', v: ['x', 'x', 'x', 'x', 'x'] },
+      { golpe: 'Tesoura voadora (scissor takedown)', v: ['x', 'x', 'x', 'x', 'x'] },
+      { golpe: 'Dobrar os dedos para trás', v: ['x', 'x', 'x', 'x', 'x'] },
+      { golpe: 'Defender single leg lançando o adversário de cabeça ao chão pela faixa', v: ['x', 'x', 'x', 'x', 'x'] },
+      { golpe: 'Suplex que projeta cabeça ou pescoço ao chão', v: ['x', 'x', 'x', 'x', 'x'] }
+    ],
+    faltas: [
+      'Falta de combatividade: o árbitro conta 20 segundos, manda "Lute" e depois pune como falta grave.',
+      'Faltas graves, em sequência: 1ª marcação no placar; 2ª vantagem ao adversário; 3ª 2 pontos ao adversário; 4ª desclassificação. Até 15 anos há uma punição a mais antes da desclassificação.',
+      'Fuga deliberada da área pode dar 2 pontos ao adversário, além da punição.',
+      'Faltas gravíssimas (golpe proibido, uniforme irregular, substância proibida): desclassificação da luta. Falta disciplinar (xingamento, agressão, golpe traumático intencional): pode desclassificar da competição.',
+      'Pular para a guarda fechada: falta grave para faixa branca e para atletas até 15 anos; se estava defendendo queda ou raspagem, o adversário ganha também 2 pontos.',
+      'Até 12 anos, o árbitro protege o pescoço do atleta (estrangulamentos e chaves de pescoço mais restritos).'
+    ],
+    notas: [
+      'Resumo montado a partir do Livro de Regras da IBJJF (versão 6.1) e de guias que o citam. O nome do golpe sozinho não resolve todos os casos: vale a ilustração do livro oficial.',
+      'Regras mudam com frequência (a IBJJF atualiza o livro todo ano e algumas federações têm regras próprias). Confira antes de campeonatos e use "Atualizar regras" para corrigir esta tabela.',
+      'O tempo de luta dos Masters está resumido: conferir no livro de regras do ano.'
+    ]
+  };
+  const lutaIBJJF = () => (config.regrasIbjjf && config.regrasIbjjf.luta && Array.isArray(config.regrasIbjjf.luta.tempos)) ? config.regrasIbjjf.luta : LUTA_PADRAO;
+  function tempoDeLuta(a) {
+    const idade = idadeIBJJF(a.dataNascimento);
+    if (idade == null) return null;
+    const t = lutaIBJJF().tempos.find(x => idade >= x.de && idade <= x.ate);
+    if (!t) return null;
+    const m = typeof t.min === 'object' ? t.min[baseFaixa(a.faixa)] : t.min;
+    return m ? { min: m, nome: t.nome } : null;
+  }
+
+  function renderLuta() {
+    if (!$('rg-tempos')) return;
+    const L = lutaIBJJF();
+    $('rg-tempos').innerHTML = L.tempos.map(t => `<tr><td><strong>${esc(t.nome)}</strong></td>
+      <td>${t.ate >= 999 ? t.de + '+' : t.de + ' a ' + t.ate} anos</td>
+      <td>${typeof t.min === 'object' ? Object.entries(t.min).map(([b, m]) => `${nomeBase(b)} ${m} min`).join(' · ') : t.min + ' min'}</td>
+      <td class="muted">${esc(t.obs || '')}</td></tr>`).join('');
+    $('rg-pontos').innerHTML = (L.pontos || []).map(x => `<tr><td>${esc(x.acao)}</td><td><b>${esc(x.pts)}</b></td></tr>`).join('');
+    $('rg-pontos-notas').innerHTML = (L.pontosNotas || []).map(n => `<li style="margin-bottom:4px;">${esc(n)}</li>`).join('');
+    $('rg-golpes-cab').innerHTML = `<tr><th>Golpe</th>${(L.grupos || []).map(g => `<th style="text-align:center;">${esc(g)}</th>`).join('')}</tr>`;
+    const cel = v => v === 'ok' ? '<td style="text-align:center; background:#eefaf0;">✅</td>'
+      : v === 'nogi' ? '<td style="text-align:center; background:#fff8e1;">🟡 só No-Gi</td>'
+      : '<td style="text-align:center; background:#fdecea;">❌</td>';
+    $('rg-golpes').innerHTML = (L.golpes || []).map(g => `<tr><td>${esc(g.golpe)}${g.obs ? `<br><small class="muted">${esc(g.obs)}</small>` : ''}</td>${(g.v || []).map(cel).join('')}</tr>`).join('');
+    $('rg-faltas').innerHTML = (L.faltas || []).map(n => `<li style="margin-bottom:4px;">${esc(n)}</li>`).join('');
+    $('rg-luta-notas').innerHTML = (L.notas || []).map(n => `<li style="margin-bottom:4px;">${esc(n)}</li>`).join('');
+  }
+  function mostrarSecaoRegras(luta) {
+    $('rg-sec-grad').classList.toggle('hidden', luta);
+    $('rg-sec-luta').classList.toggle('hidden', !luta);
+    $('rg-sw-grad').classList.toggle('sec', luta);
+    $('rg-sw-luta').classList.toggle('sec', !luta);
+  }
+  $('rg-sw-grad').addEventListener('click', () => mostrarSecaoRegras(false));
+  $('rg-sw-luta').addEventListener('click', () => mostrarSecaoRegras(true));
+
   function renderRegras() {
     if (!$('rg-categorias')) return;
+    renderLuta();
     const r = regrasIBJJF();
     const ativos = alunos.filter(a => (a.status || 'ativo') === 'ativo');
     $('rg-versao').innerHTML = `Versão das regras: <b>${esc(r.versao || '-')}</b>${config.regrasIbjjf ? ' (personalizada)' : ' (padrão do sistema)'} · Fonte: ${esc(r.fonte || '')}`;
@@ -2048,7 +2168,7 @@
   }
 
   $('rg-editar').addEventListener('click', () => {
-    $('rg-json').value = JSON.stringify(regrasIBJJF(), null, 2);
+    $('rg-json').value = JSON.stringify({ ...regrasIBJJF(), luta: lutaIBJJF() }, null, 2);
     msg('rg-msg', '');
     $('rg-editor').classList.remove('hidden');
   });
