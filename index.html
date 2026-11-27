@@ -119,6 +119,7 @@
       <button class="tab" data-tab="presenca">✓ Presença</button>
       <button class="tab" data-tab="planejamento">📋 Planejamento</button>
       <button class="tab" data-tab="financeiro">💰 Financeiro</button>
+      <button class="tab" data-tab="estoque">📦 Estoque</button>
       <button class="tab" data-tab="relatorios">📈 Relatórios</button>
       <button class="tab" data-tab="turmas">⏰ Turmas</button>
       <button class="tab" data-tab="config">⚙️ Configurações</button>
@@ -159,6 +160,10 @@
       <div class="card">
         <h2>Aulas de hoje</h2>
         <div id="aulas-hoje"></div>
+      </div>
+      <div class="card" id="card-estoque-inicio">
+        <h2>📦 Estoque <span id="estoque-contagem" class="badge" style="background:#28a745; color:#222;">0</span></h2>
+        <div id="estoque-inicio"></div>
       </div>
       <div class="card">
         <h2>⏸️ Trancados para retomar contato</h2>
@@ -268,7 +273,72 @@
       </div>
     </div>
 
+    <div id="tab-estoque" class="hidden">
+      <div class="card">
+        <h2>📦 Estoque</h2>
+        <div class="stats">
+          <div class="stat"><small>Produtos</small><div id="es-st-itens">0</div></div>
+          <div class="stat"><small>Unidades em estoque</small><div id="es-st-un">0</div></div>
+          <div class="stat"><small>Valor de venda em estoque</small><div id="es-st-valor">R$ 0</div></div>
+          <div class="stat"><small>Precisam de reposição</small><div id="es-st-alerta">0</div></div>
+        </div>
+        <div id="es-erro"></div>
+      </div>
+      <div class="card">
+        <h2>⚠️ Hora de repor <span id="es-alerta-contagem" class="badge" style="background:#28a745; color:#222;">0</span></h2>
+        <div id="es-alertas"></div>
+        <button type="button" class="sm sec" id="es-copiar" style="margin-top:8px;">📋 Copiar lista de compras</button>
+      </div>
+      <div class="card">
+        <h2 id="es-form-titulo">Cadastrar produto</h2>
+        <div class="row">
+          <div><label>Produto</label><input type="text" id="es-nome" placeholder="Ex: Kimono"></div>
+          <div><label>Tamanho/variação (opcional)</label><input type="text" id="es-tam" placeholder="Ex: A2, M, Azul"></div>
+          <div><label>Categoria</label><input type="text" id="es-cat" list="es-cats" placeholder="Ex: Kimono"><datalist id="es-cats"><option>Kimono</option><option>Rashguard</option><option>Faixa</option><option>Bermuda</option><option>Protetor bucal</option></datalist></div>
+        </div>
+        <div class="row">
+          <div><label>Preço de venda (R$)</label><input type="number" id="es-preco" min="0" step="0.01"></div>
+          <div><label>Custo (R$, opcional)</label><input type="number" id="es-custo" min="0" step="0.01"></div>
+          <div><label>Quantidade em estoque</label><input type="number" id="es-qtd" min="0" step="1" value="0"></div>
+          <div><label>Avisar quando chegar a</label><input type="number" id="es-min" min="0" step="1" value="1"></div>
+        </div>
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" id="es-salvar">💾 Salvar produto</button>
+          <button type="button" class="sec hidden" id="es-cancelar">Cancelar edição</button>
+        </div>
+        <div id="es-msg"></div>
+      </div>
+      <div class="card">
+        <h2>Produtos</h2>
+        <div style="overflow-x:auto;"><table>
+          <thead><tr><th>Produto</th><th>Categoria</th><th>Estoque</th><th>Mínimo</th><th>Preço</th><th></th></tr></thead>
+          <tbody id="es-tabela"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>Movimentações recentes</h2>
+        <div style="overflow-x:auto;"><table>
+          <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Detalhe</th></tr></thead>
+          <tbody id="es-mov"></tbody></table></div>
+      </div>
+    </div>
+
     <div id="tab-presenca" class="hidden">
+      <div class="card" id="card-pres-avulsa">
+        <h2>✍️ Presença avulsa / retroativa</h2>
+        <p class="muted" style="margin-top:-6px;">Para quem treinou fora do dia habitual ou para lançar uma aula que ficou sem chamada. Funciona com aula encerrada ou sem aula aberta.</p>
+        <div class="row">
+          <div><label>Data do treino</label><input type="date" id="pa-data"></div>
+          <div><label>Turma</label><select id="pa-turma"></select></div>
+          <div><label>Buscar aluno</label><input type="text" id="pa-busca" placeholder="Digite o nome"></div>
+        </div>
+        <div style="margin:8px 0; display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="sm sec" id="pa-todos-turma">Marcar alunos da turma</button>
+          <button type="button" class="sm sec" id="pa-limpar">Limpar seleção</button>
+        </div>
+        <div id="pa-lista" style="max-height:260px; overflow:auto; border:1px solid #e3e3e3; border-radius:8px; padding:6px;"></div>
+        <div style="margin-top:12px;"><button type="button" id="pa-lancar">✅ Lançar presença (<span id="pa-qtd">0</span>)</button></div>
+        <div id="pa-msg"></div>
+      </div>
       <div class="card">
         <div id="pr-sem-aula">
           <h2>Iniciar aula</h2>
@@ -355,6 +425,10 @@
           <div><label>Descrição</label><input type="text" id="av-desc" placeholder="Ex: Kimono"></div>
           <div><label>Valor (R$)</label><input type="number" id="av-valor" min="0" step="0.01"></div>
           <div><label>Vencimento</label><input type="date" id="av-venc"></div>
+        </div>
+        <div class="row">
+          <div><label>Produto do estoque (opcional: dá baixa automática)</label><select id="av-produto"></select></div>
+          <div><label>Quantidade</label><input type="number" id="av-qtd" min="1" step="1" value="1"></div>
         </div>
         <div style="margin-top:12px;"><button id="btn-avulso">➕ Lançar cobrança</button></div>
         <div id="av-msg"></div>
@@ -689,7 +763,7 @@
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
-    getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, getDoc, query, where
+    getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, getDoc, query, where, increment
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   // Configuração do projeto Firebase da academia
@@ -789,6 +863,7 @@
       alunos.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
       alunosCarregados = true;
       renderAlunos();
+      renderPresAvulsa();
       renderInicio();
       sincronizarFinanceiro();
     }));
@@ -802,6 +877,7 @@
     iniciarPresenca();
     iniciarFinanceiro();
     iniciarPlanejamento();
+    iniciarEstoque();
     unsubs.push(onSnapshot(doc(db, 'config', 'geral'), snap => {
       if (snap.exists()) {
         const d = snap.data();
@@ -828,7 +904,7 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('ativa'));
       btn.classList.add('ativa');
-      ['recepcao','dashboard','alunos','faixas','regras','presenca','planejamento','financeiro','relatorios','turmas','config'].forEach(t => {
+      ['recepcao','dashboard','alunos','faixas','regras','presenca','planejamento','financeiro','estoque','relatorios','turmas','config'].forEach(t => {
         $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
       });
       if (btn.dataset.tab === 'planejamento') renderPlanejamento(true);
@@ -1198,6 +1274,7 @@
   }
 
   function renderPresenca() {
+    renderPresAvulsa();
     const semAula = !sessaoAtiva;
     $('pr-sem-aula').classList.toggle('hidden', !semAula);
     $('pr-com-aula').classList.toggle('hidden', semAula);
@@ -1835,7 +1912,12 @@
       if (!p || !p.avulso) return;
       const a = alunos.find(y => y.id === p.alunoId);
       if (!confirm(`Excluir a cobrança "${p.descricao}" (${reais(p.valor)}) de ${a?.nome || 'aluno'}? Esta ação não pode ser desfeita.`)) return;
-      try { await deleteDoc(doc(db, 'pagamentos', p.id)); }
+      const prodVend = p.produtoId ? produtos.find(y => y.id === p.produtoId) : null;
+      const devolver = prodVend && confirm(`Esta cobrança deu baixa de ${p.produtoQtd || 1} un. de "${nomeProduto(prodVend)}".\n\nDevolver ao estoque?\n\nOK = devolver · Cancelar = manter a baixa (produto não voltou)`);
+      try {
+        await deleteDoc(doc(db, 'pagamentos', p.id));
+        if (devolver) await movimentar(prodVend.id, p.produtoQtd || 1, 'devolucao', { alunoId: p.alunoId, detalhe: `Cobrança excluída (${a?.nome || 'aluno'})` });
+      }
       catch (err) { alert('Não foi possível excluir: ' + err.message); }
       return;
     }
@@ -2319,6 +2401,219 @@
     reader.readAsDataURL(file);
   });
 
+
+  // ---------- Presença avulsa / retroativa ----------
+  const paSel = new Set();
+  const TURMA_EXTRA = '__extra';
+  function renderPresAvulsa() {
+    if (!$('pa-lista')) return;
+    if (!$('pa-data').value) { $('pa-data').value = hoje(); }
+    $('pa-data').max = hoje();
+    const selT = $('pa-turma');
+    const optsT = turmas.map(t => `<option value="${t.id}">${esc(t.nome)}${t.horario ? ' · ' + esc(t.horario) : ''}</option>`).join('')
+      + `<option value="${TURMA_EXTRA}">Treino fora de turma (avulso)</option>`;
+    if (selT.dataset.sig !== optsT) { const v = selT.value; selT.innerHTML = optsT; selT.dataset.sig = optsT; if (v) selT.value = v; }
+    const busca = ($('pa-busca').value || '').trim().toLowerCase();
+    const ativos = alunos.filter(a => (a.status || 'ativo') === 'ativo').sort((x, y) => (x.nome || '').localeCompare(y.nome || ''));
+    const lista = ativos.filter(a => !busca || (a.nome || '').toLowerCase().includes(busca));
+    $('pa-lista').innerHTML = lista.length ? lista.map(a => `<label class="chamada-linha">
+        <input type="checkbox" class="pa-check" data-aluno="${a.id}" ${paSel.has(a.id) ? 'checked' : ''}>
+        <span style="flex:1;">${esc(a.nome)}</span></label>`).join('') : '<p class="muted">Nenhum aluno encontrado.</p>';
+    $('pa-qtd').textContent = paSel.size;
+  }
+  $('pa-lista').addEventListener('change', e => {
+    const c = e.target.closest('.pa-check');
+    if (!c) return;
+    c.checked ? paSel.add(c.dataset.aluno) : paSel.delete(c.dataset.aluno);
+    $('pa-qtd').textContent = paSel.size;
+  });
+  $('pa-busca').addEventListener('input', renderPresAvulsa);
+  $('pa-limpar').addEventListener('click', () => { paSel.clear(); renderPresAvulsa(); });
+  $('pa-todos-turma').addEventListener('click', () => {
+    const tid = $('pa-turma').value;
+    alunos.filter(a => (a.status || 'ativo') === 'ativo' && (a.turmas || []).includes(tid)).forEach(a => paSel.add(a.id));
+    renderPresAvulsa();
+  });
+  $('pa-lancar').addEventListener('click', async () => {
+    const data = $('pa-data').value;
+    const turmaId = $('pa-turma').value;
+    if (!data) return msg('pa-msg', 'Escolha a data do treino.');
+    if (data > hoje()) return msg('pa-msg', 'A data não pode ser no futuro.');
+    if (!turmaId) return msg('pa-msg', 'Escolha a turma (ou "Treino fora de turma").');
+    if (!paSel.size) return msg('pa-msg', 'Marque pelo menos um aluno.');
+    const t = turmas.find(x => x.id === turmaId);
+    const turmaNome = t ? t.nome : 'Treino avulso';
+    const horario = t ? (t.horario || '') : '';
+    // Reaproveita a aula (sessão) que já existe nesse dia/turma; senão cria uma sessão avulsa fechada
+    let sid = (sessaoAtiva && sessaoAtiva.data === data && sessaoAtiva.turmaId === turmaId) ? sessaoAtiva.id : '';
+    if (!sid) {
+      const ex = sessoesRecentes.find(x => x.data === data && x.turmaId === turmaId);
+      if (ex) sid = ex.id;
+    }
+    let novos = 0, jaTinha = 0;
+    try {
+      if (!sid) {
+        sid = `avulsa_${data}_${turmaId}`;
+        await setDoc(doc(db, 'sessoes', sid), { turmaId, turmaNome, horario, data, ativa: false, avulsa: true, roster: [], criadaEm: new Date().toISOString() }, { merge: true });
+      }
+      for (const alunoId of [...paSel]) {
+        if (presencas.some(p => p.alunoId === alunoId && p.data === data && p.turmaId === turmaId && p.presente)) { jaTinha++; continue; }
+        await setDoc(doc(db, 'presencas', `${sid}_${alunoId}`), {
+          alunoId, sessaoId: sid, turmaId, turmaNome, horario: '', data, presente: true, origem: 'avulsa',
+          lancadaEm: new Date().toISOString()
+        });
+        novos++;
+      }
+      paSel.clear();
+      renderPresAvulsa();
+      msg('pa-msg', `${novos} presença(s) lançada(s) em ${dataBR(data)}${jaTinha ? ` · ${jaTinha} já estava(m) registrada(s)` : ''}.`, 'ok');
+    } catch (err) {
+      msg('pa-msg', 'Não foi possível lançar: ' + err.message);
+    }
+  });
+
+  // ---------- Estoque ----------
+  let produtos = [], movimentos = [], estoqueEditando = null, estoqueErro = '';
+  const unEstoque = n => `${n} un.`;
+  const statusEstoque = p => (Number(p.qtd) || 0) <= 0 ? 'zerado' : (Number(p.qtd) || 0) <= (Number(p.minimo) || 0) ? 'baixo' : 'ok';
+  const nomeProduto = p => (p.nome || '') + (p.tamanho ? ' ' + p.tamanho : '');
+
+  function iniciarEstoque() {
+    const falha = err => { estoqueErro = err.code === 'permission-denied' || /permission/i.test(err.message)
+      ? 'Sem permissão para ler o estoque. Nas regras do Firestore, libere as coleções "produtos" e "movimentos_estoque" para usuários logados.'
+      : 'Erro no estoque: ' + err.message; renderEstoque(); };
+    unsubs.push(onSnapshot(collection(db, 'produtos'), snap => {
+      produtos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      produtos.sort((a, b) => nomeProduto(a).localeCompare(nomeProduto(b)));
+      estoqueErro = '';
+      renderEstoque(); renderAvulsos();
+    }, falha));
+    unsubs.push(onSnapshot(collection(db, 'movimentos_estoque'), snap => {
+      movimentos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      movimentos.sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
+      renderEstoque();
+    }, falha));
+  }
+
+  async function movimentar(produtoId, delta, tipo, extra = {}) {
+    const p = produtos.find(x => x.id === produtoId);
+    await setDoc(doc(db, 'produtos', produtoId), { qtd: increment(delta) }, { merge: true });
+    await addDoc(collection(db, 'movimentos_estoque'), {
+      produtoId, produtoNome: p ? nomeProduto(p) : '', tipo, qtd: delta, data: hoje(), criadoEm: new Date().toISOString(), ...extra
+    });
+  }
+
+  function renderEstoque() {
+    if (!$('es-tabela')) return;
+    $('es-erro').innerHTML = estoqueErro ? `<p style="color:#721c24; background:#f8d7da; padding:8px 12px; border-radius:6px;">${esc(estoqueErro)}</p>` : '';
+    const alerta = produtos.filter(p => statusEstoque(p) !== 'ok');
+    $('es-st-itens').textContent = produtos.length;
+    $('es-st-un').textContent = produtos.reduce((t, p) => t + Math.max(0, Number(p.qtd) || 0), 0);
+    $('es-st-valor').textContent = reais(produtos.reduce((t, p) => t + Math.max(0, Number(p.qtd) || 0) * (Number(p.preco) || 0), 0));
+    $('es-st-alerta').textContent = alerta.length;
+
+    const cardAlerta = p => {
+      const st = statusEstoque(p);
+      const cor = st === 'zerado' ? '#dc3545' : '#ffc107';
+      const txt = st === 'zerado' ? '<b style="color:#c0392b;">Esgotado</b>' : `<b>Estoque baixo</b>: ${unEstoque(p.qtd)} (mínimo ${p.minimo || 0})`;
+      return `<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px; margin-bottom:8px; background:${st === 'zerado' ? '#fdecea' : '#fff8e1'}; border-left:4px solid ${cor}; border-radius:6px;">
+        <div style="flex:1; min-width:160px;"><strong>${esc(nomeProduto(p))}</strong><br><small>${txt}</small></div>
+        <button class="sm" data-es-entrada="${p.id}">➕ Dar entrada</button></div>`;
+    };
+    const ordenado = [...alerta].sort((a, b) => (Number(a.qtd) || 0) - (Number(b.qtd) || 0));
+    const htmlAlerta = ordenado.length ? ordenado.map(cardAlerta).join('') : (produtos.length ? '<p class="muted">Tudo certo: nenhum produto abaixo do mínimo. ✅</p>' : '<p class="muted">Cadastre seus produtos (kimono, rashguard, faixa...) para controlar o estoque.</p>');
+    $('es-alertas').innerHTML = htmlAlerta;
+    $('es-alerta-contagem').textContent = alerta.length;
+    $('es-alerta-contagem').style.background = alerta.length ? '#ffc107' : '#28a745';
+    $('es-copiar').classList.toggle('hidden', !alerta.length);
+    if ($('estoque-inicio')) {
+      $('estoque-inicio').innerHTML = estoqueErro ? '' : htmlAlerta;
+      $('estoque-contagem').textContent = alerta.length;
+      $('estoque-contagem').style.background = alerta.length ? '#ffc107' : '#28a745';
+    }
+
+    $('es-tabela').innerHTML = produtos.length ? produtos.map(p => {
+      const st = statusEstoque(p);
+      const cor = st === 'zerado' ? '#f8d7da' : st === 'baixo' ? '#fff3cd' : '#d4edda';
+      return `<tr><td><strong>${esc(nomeProduto(p))}</strong></td><td>${esc(p.categoria || '-')}</td>
+        <td><span class="badge" style="background:${cor}; color:#222;">${Number(p.qtd) || 0}</span></td>
+        <td>${p.minimo || 0}</td><td>${reais(p.preco || 0)}</td>
+        <td style="white-space:nowrap;"><button class="sm" data-es-entrada="${p.id}">➕ Entrada</button><button class="sm sec" data-es-editar="${p.id}">✏️</button><button class="sm del" data-es-excluir="${p.id}">🗑️</button></td></tr>`;
+    }).join('') : '<tr><td colspan="6" class="muted">Nenhum produto cadastrado.</td></tr>';
+
+    const TIPOS = { venda: '🛒 Venda', entrada: '📥 Entrada', ajuste: '✏️ Ajuste', devolucao: '↩️ Devolução' };
+    $('es-mov').innerHTML = movimentos.length ? movimentos.slice(0, 40).map(m => `<tr>
+      <td>${dataBR(m.data)}</td><td>${esc(m.produtoNome || '-')}</td><td>${TIPOS[m.tipo] || esc(m.tipo)}</td>
+      <td><b style="color:${m.qtd < 0 ? '#c0392b' : '#155724'};">${m.qtd > 0 ? '+' : ''}${m.qtd}</b></td><td class="muted">${esc(m.detalhe || '')}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="muted">Sem movimentações ainda.</td></tr>';
+    renderAvulsos();
+  }
+
+  function limparFormEstoque() {
+    estoqueEditando = null;
+    ['es-nome', 'es-tam', 'es-cat', 'es-preco', 'es-custo'].forEach(i => $(i).value = '');
+    $('es-qtd').value = 0; $('es-min').value = 1;
+    $('es-form-titulo').textContent = 'Cadastrar produto';
+    $('es-cancelar').classList.add('hidden');
+  }
+  $('es-cancelar').addEventListener('click', limparFormEstoque);
+  $('es-salvar').addEventListener('click', async () => {
+    const nome = $('es-nome').value.trim();
+    const preco = parseFloat($('es-preco').value);
+    const qtd = parseInt($('es-qtd').value);
+    const minimo = parseInt($('es-min').value);
+    if (!nome) return msg('es-msg', 'Informe o nome do produto.');
+    if (!(preco >= 0)) return msg('es-msg', 'Informe o preço de venda.');
+    if (!(qtd >= 0) || !(minimo >= 0)) return msg('es-msg', 'Quantidade e mínimo precisam ser 0 ou mais.');
+    const dados = { nome, tamanho: $('es-tam').value.trim(), categoria: $('es-cat').value.trim(), preco, custo: parseFloat($('es-custo').value) || 0, minimo };
+    try {
+      if (estoqueEditando) {
+        const atual = produtos.find(x => x.id === estoqueEditando);
+        await setDoc(doc(db, 'produtos', estoqueEditando), dados, { merge: true });
+        const dif = qtd - (Number(atual?.qtd) || 0);
+        if (dif !== 0) await movimentar(estoqueEditando, dif, 'ajuste', { detalhe: 'Ajuste manual na edição' });
+      } else {
+        const ref = await addDoc(collection(db, 'produtos'), { ...dados, qtd, criadoEm: new Date().toISOString() });
+        if (qtd > 0) await addDoc(collection(db, 'movimentos_estoque'), { produtoId: ref.id, produtoNome: nomeProduto(dados), tipo: 'entrada', qtd, data: hoje(), criadoEm: new Date().toISOString(), detalhe: 'Estoque inicial' });
+      }
+      limparFormEstoque();
+      msg('es-msg', 'Produto salvo.', 'ok');
+    } catch (err) { msg('es-msg', 'Não foi possível salvar: ' + err.message); }
+  });
+  document.addEventListener('click', async e => {
+    const ent = e.target.closest('[data-es-entrada]');
+    const ed = e.target.closest('[data-es-editar]');
+    const ex = e.target.closest('[data-es-excluir]');
+    try {
+      if (ent) {
+        const p = produtos.find(x => x.id === ent.dataset.esEntrada);
+        if (!p) return;
+        const n = parseInt(prompt(`Quantas unidades de "${nomeProduto(p)}" entraram no estoque?`, '1'));
+        if (!(n > 0)) return;
+        await movimentar(p.id, n, 'entrada', { detalhe: 'Reposição' });
+      } else if (ed) {
+        const p = produtos.find(x => x.id === ed.dataset.esEditar);
+        if (!p) return;
+        estoqueEditando = p.id;
+        $('es-nome').value = p.nome || ''; $('es-tam').value = p.tamanho || ''; $('es-cat').value = p.categoria || '';
+        $('es-preco').value = p.preco ?? ''; $('es-custo').value = p.custo || ''; $('es-qtd').value = Number(p.qtd) || 0; $('es-min').value = p.minimo || 0;
+        $('es-form-titulo').textContent = 'Editar produto';
+        $('es-cancelar').classList.remove('hidden');
+        $('es-nome').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (ex) {
+        const p = produtos.find(x => x.id === ex.dataset.esExcluir);
+        if (!p || !confirm(`Excluir "${nomeProduto(p)}" do estoque? O histórico de movimentações continua guardado.`)) return;
+        await deleteDoc(doc(db, 'produtos', p.id));
+      }
+    } catch (err) { alert('Não foi possível atualizar o estoque: ' + err.message); }
+  });
+  $('es-copiar').addEventListener('click', async () => {
+    const linhas = produtos.filter(p => statusEstoque(p) !== 'ok').map(p => `- ${nomeProduto(p)}: tem ${Number(p.qtd) || 0}, mínimo ${p.minimo || 0}`);
+    const texto = `Lista de compras - ${config.nome}\n` + linhas.join('\n');
+    try { await navigator.clipboard.writeText(texto); msg('es-msg', 'Lista copiada.', 'ok'); }
+    catch (err) { prompt('Copie a lista:', texto); }
+  });
+
   // ---------- Cobranças avulsas ----------
   function renderAvulsos() {
     if (!$('av-lista')) return;
@@ -2326,6 +2621,9 @@
     if (select.options.length !== alunos.length) {
       select.innerHTML = alunos.map(a => `<option value="${a.id}">${esc(a.nome)}</option>`).join('');
     }
+    const selP = $('av-produto');
+    const optsP = '<option value="">— sem produto (cobrança livre) —</option>' + produtos.map(p => `<option value="${p.id}">${esc(nomeProduto(p))} (${Number(p.qtd) || 0} un.) · ${reais(p.preco || 0)}</option>`).join('');
+    if (selP.dataset.sig !== optsP) { const v = selP.value; selP.innerHTML = optsP; selP.dataset.sig = optsP; selP.value = v; }
     const mes = $('fin-mes').value || mesAtual();
     const avulsos = pagamentos.filter(p => p.avulso && p.mes === mes);
     $('av-lista').innerHTML = avulsos.length ? avulsos.map(p => {
@@ -2335,27 +2633,49 @@
       const acao = st === 'pago'
         ? `<button class="sm sec" data-desfazer="${p.id}">↩️ Desfazer</button>`
         : `<button class="sm" data-whats="${p.id}">📲 Avisar</button><button class="sm" data-recebido="${p.id}">✅ Recebido</button>`;
-      return `<tr><td>${esc(a?.nome || '-')}</td><td>${esc(p.descricao)}</td><td>${reais(p.valor)}</td>
+      return `<tr><td>${esc(a?.nome || '-')}</td><td>${esc(p.descricao)}${p.produtoId ? ' <span class="badge" title="Baixa no estoque">📦</span>' : ''}</td><td>${reais(p.valor)}</td>
         <td>${esc(p.vencimento)}</td><td>${situacao}</td><td style="white-space:nowrap;">${acao}<button class="sm del" data-excluir-pag="${p.id}">🗑️</button></td></tr>`;
     }).join('') : '<tr><td class="muted">Nenhuma cobrança avulsa neste mês.</td></tr>';
   }
 
+  function preencherAvulsoPorProduto() {
+    const prod = produtos.find(x => x.id === $('av-produto').value);
+    if (!prod) return;
+    const q = Math.max(1, parseInt($('av-qtd').value) || 1);
+    $('av-desc').value = nomeProduto(prod) + (q > 1 ? ` (x${q})` : '');
+    $('av-valor').value = ((Number(prod.preco) || 0) * q).toFixed(2);
+  }
+  $('av-produto').addEventListener('change', preencherAvulsoPorProduto);
+  $('av-qtd').addEventListener('input', preencherAvulsoPorProduto);
+
   $('btn-avulso').addEventListener('click', async () => {
     const alunoId = $('av-aluno').value;
+    const prodId = $('av-produto').value;
+    const prod = produtos.find(x => x.id === prodId);
+    const qtdProd = Math.max(1, parseInt($('av-qtd').value) || 1);
     const descricao = $('av-desc').value.trim();
     const valor = parseFloat($('av-valor').value);
     const vencimento = $('av-venc').value;
     if (!alunoId || !descricao || !(valor > 0) || !vencimento) {
       return msg('av-msg', 'Preencha aluno, descrição, valor e vencimento.');
     }
+    if (prod && (Number(prod.qtd) || 0) < qtdProd && !confirm(`Só há ${Number(prod.qtd) || 0} un. de "${nomeProduto(prod)}" no estoque. Lançar mesmo assim? O estoque ficará negativo.`)) return;
     try {
-      await addDoc(collection(db, 'pagamentos'), {
+      const ref = await addDoc(collection(db, 'pagamentos'), {
         alunoId, avulso: true, descricao, valor,
         mes: vencimento.slice(0, 7), vencimento,
-        status: 'pendente', dataPagamento: ''
+        status: 'pendente', dataPagamento: '',
+        ...(prod ? { produtoId: prod.id, produtoQtd: qtdProd } : {})
       });
+      if (prod) {
+        const al = alunos.find(x => x.id === alunoId);
+        try { await movimentar(prod.id, -qtdProd, 'venda', { pagamentoId: ref.id, alunoId, detalhe: `Venda para ${al?.nome || 'aluno'}` }); }
+        catch (err) { alert('A cobrança foi lançada, mas não deu para dar baixa no estoque: ' + err.message); }
+      }
       $('av-desc').value = '';
       $('av-valor').value = '';
+      $('av-produto').value = '';
+      $('av-qtd').value = 1;
       msg('av-msg', 'Cobrança lançada.', 'ok');
     } catch (err) {
       msg('av-msg', 'Não foi possível lançar: ' + err.message);
@@ -2526,7 +2846,7 @@
   });
 
   // ---------- Recepção e área do dono ----------
-  const TABS_RESTRITAS = ['dashboard', 'alunos', 'faixas', 'regras', 'planejamento', 'financeiro', 'relatorios', 'turmas', 'config'];
+  const TABS_RESTRITAS = ['dashboard', 'alunos', 'faixas', 'regras', 'planejamento', 'financeiro', 'estoque', 'relatorios', 'turmas', 'config'];
   let areaDonoLiberada = false;
 
   function irPara(tab) {
@@ -3363,7 +3683,7 @@
       if (p.alunoId !== a.id || !p.presente || p.data < de || p.data > ate) return;
       const k = `${p.data}|${p.turmaId}`;
       const t = turmas.find(x => x.id === p.turmaId);
-      const item = mapa.get(k) || { data: p.data, turmaId: p.turmaId, turmaNome: t ? t.nome : '', horario: t ? t.horario : '', abonada: false, sids: [] };
+      const item = mapa.get(k) || { data: p.data, turmaId: p.turmaId, turmaNome: t ? t.nome : (p.turmaNome || ''), horario: t ? t.horario : '', abonada: false, sids: [] };
       item.presente = true;
       item.abonada = false;
       item.origem = p.origem;
@@ -3483,7 +3803,7 @@
   function linhasIndividual(a, aulas) {
     return [['Data', 'Dia', 'Turma', 'Horário', 'Situação', 'Como marcou']].concat(aulas.map(x => [
       dataBR(x.data), NOMES_DIA_LONGO[parseISO(x.data).getDay()], x.turmaNome || '', x.horario || '',
-      x.presente ? 'Presente' : (x.abonada ? 'Falta abonada' : 'Faltou'), x.presente ? (x.origem === 'qr' ? 'QR code' : 'Professor') : ''
+      x.presente ? 'Presente' : (x.abonada ? 'Falta abonada' : 'Faltou'), x.presente ? (x.origem === 'qr' ? 'QR code' : x.origem === 'avulsa' ? 'Presença avulsa' : 'Professor') : ''
     ]));
   }
 
